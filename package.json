@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "codegen": "swagger-typescript-api -p swagger.json -o src/generated/rista -n ristaApi.ts"
+    "codegen": "orval"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.5.0",
@@ -27,7 +27,7 @@
     "@types/react-dom": "^19",
     "eslint": "^9",
     "eslint-config-next": "16.1.1",
-    "swagger-typescript-api": "^13.0.22",
+    "orval": "^7.13.2",
     "tailwindcss": "^4",
     "typescript": "^5"
   }

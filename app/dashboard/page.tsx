@@ -111,9 +111,9 @@ export default function DashboardPage() {
                 ) : branches.length === 0 ? (
                   <option value="">No branches available</option>
                 ) : (
-                  branches.map((b : any) => (
-                    <option key={b.branchCode} value={b.id}>
-                      {b.branchName} {b.branchCode ? `- ${b.branchCode}` : ''}
+                  branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} {b.location ? `- ${b.location}` : ''}
                     </option>
                   ))
                 )}

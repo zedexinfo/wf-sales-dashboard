@@ -1,4 +1,6 @@
-import { createRistaClient } from '../lib/ristaClient';
+import { getRistaPOSAPI } from '../generated/rista/ristaApi';
+
+const ristaAPI = getRistaPOSAPI();
 
 export interface Sale {
   id: string;
@@ -24,22 +26,21 @@ export interface SaleItem {
  * Loops until lastKey is null
  */
 export async function getAllSales(branch: string, date: string): Promise<Sale[]> {
-  const client = createRistaClient();
   const allSales: Sale[] = [];
   let lastKey: string | undefined = undefined;
 
   try {
     do {
-      const response = await client.sales.pageList({
+      const response = await ristaAPI.getSalesPage({
         branch,
         date,
         ...(lastKey && { lastKey }),
       });
 
-      const sales = (response.data.sales || []) as Sale[];
+      const sales = (response.sales || []) as Sale[];
       allSales.push(...sales);
 
-      lastKey = response.data.lastKey || undefined;
+      lastKey = response.lastKey || undefined;
     } while (lastKey);
 
     return allSales;

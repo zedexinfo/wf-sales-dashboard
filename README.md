@@ -185,8 +185,24 @@ npm run dev          # Start development server
 npm run build        # Build for production
 npm start            # Start production server
 npm run lint         # Run ESLint
-npm run codegen      # Regenerate API types from Swagger
+npm run codegen      # Regenerate API types from Swagger using Orval
 ```
+
+### Code Generation
+
+This project uses [Orval](https://orval.dev/) to generate TypeScript types and API functions from the Swagger/OpenAPI specification.
+
+**Configuration**: `orval.config.js`
+- Input: `swagger.json` (OpenAPI 3.0 spec)
+- Output: `src/generated/rista/`
+- Client: Axios with custom instance for authentication
+- Mode: Single file generation
+
+**Generated files**:
+- `src/generated/rista/ristaApi.ts` - API functions (`getBranches`, `getAnalyticsSalesSummary`, `getSalesPage`)
+- `src/generated/rista/models/` - TypeScript interfaces for all schemas
+
+The custom Axios instance (`src/lib/ristaClient.ts`) automatically injects authentication headers (x-api-key, x-api-token) for all API calls.
 
 ---
 
@@ -205,7 +221,7 @@ npm run codegen      # Regenerate API types from Swagger
 - `typescript` - Type safety
 - `eslint` - Code linting
 - `tailwindcss` - Styling
-- `swagger-typescript-api` - API type generation
+- `orval` - API type generation from OpenAPI/Swagger specs
 
 ---
 

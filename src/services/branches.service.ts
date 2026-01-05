@@ -1,25 +1,21 @@
-import { createRistaClient } from "../lib/ristaClient";
+import { getRistaPOSAPI } from '../generated/rista/ristaApi';
+import type { Branch } from '../generated/rista/models';
 
-export interface Branch {
-  id: string;
-  name: string;
-  location?: string;
-}
+const ristaAPI = getRistaPOSAPI();
 
 /**
  * Fetch all branches from Rista API
  * Endpoint: GET /branches
  */
 export async function getBranches(): Promise<Branch[]> {
-  const client = createRistaClient();
-
   try {
-    const response = await client.branches.branchesList();
-    const branches = (response.data || []) as Branch[];
-    return branches;
+    const response = await ristaAPI.getBranches();
+    return response.branches || [];
   } catch (error) {
-    console.error("Error fetching branches:", error);
+    console.error('Error fetching branches:', error);
     // Return empty array on error
     return [];
   }
 }
+
+export type { Branch };

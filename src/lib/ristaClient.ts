@@ -1,30 +1,33 @@
-import { Api } from '../generated/rista/ristaApi';
+import axios, { AxiosRequestConfig } from 'axios';
 import { generateRistaJWT } from './jwt';
 
 /**
- * Create authenticated Rista API client
- * Injects required headers: x-api-key and x-api-token (JWT)
+ * Custom Axios instance with Rista API authentication
+ * Automatically injects x-api-key and x-api-token (JWT) headers
  */
-export function createRistaClient() {
-  const apiKey = process.env.RISTA_API_KEY;
-  const secretKey = process.env.RISTA_SECRET_KEY;
-  const baseURL = process.env.RISTA_BASE_URL || 'https://api.ristaapps.com/v1';
+export const ristaAxiosInstance = axios.create({
+  baseURL: process.env.RISTA_BASE_URL || 'https://api.ristaapps.com/v1',
+});
 
-  if (!apiKey || !secretKey) {
-    throw new Error('RISTA_API_KEY and RISTA_SECRET_KEY must be set in environment variables');
+// Add request interceptor to inject auth headers
+ristaAxiosInstance.interceptors.request.use(
+  (config) => {
+    const apiKey = process.env.RISTA_API_KEY;
+    if (apiKey) {
+      config.headers['x-api-key'] = apiKey;
+      config.headers['x-api-token'] = generateRistaJWT();
+    }
+    return config;
+  },
+  (error) => {
+    return Promise.reject(error);
   }
+);
 
-  const token = generateRistaJWT();
+/**
+ * Custom instance wrapper for Orval-generated API functions
+ */
+export const customInstance = <T>(config: AxiosRequestConfig): Promise<T> => {
+  return ristaAxiosInstance.request<unknown, T>(config);
+};
 
-  const client = new Api({
-    baseUrl: baseURL,
-    baseApiParams: {
-      headers: {
-        'x-api-key': apiKey,
-        'x-api-token': token,
-      },
-    },
-  });
-
-  return client;
-}

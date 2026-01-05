@@ -1,5 +1,7 @@
-import { createRistaClient } from '../lib/ristaClient';
+import { getRistaPOSAPI } from '../generated/rista/ristaApi';
 import { SalesSummary } from '../types/dashboard';
+
+const ristaAPI = getRistaPOSAPI();
 
 /**
  * Fetch sales summary from Rista API
@@ -9,19 +11,17 @@ export async function getSalesSummary(
   branch: string,
   date: string
 ): Promise<SalesSummary> {
-  const client = createRistaClient();
-
   try {
-    const response = await client.analytics.salesSummaryList({
+    const response = await ristaAPI.getAnalyticsSalesSummary({
       branch,
       date,
     });
 
     return {
-      totalSales: response.data.totalSales || 0,
-      totalOrders: response.data.totalOrders || 0,
-      totalTax: response.data.totalTax || 0,
-      totalDiscount: response.data.totalDiscount || 0,
+      totalSales: response.totalSales || 0,
+      totalOrders: response.totalOrders || 0,
+      totalTax: response.totalTax || 0,
+      totalDiscount: response.totalDiscount || 0,
     };
   } catch (error) {
     console.error('Error fetching sales summary:', error);
