@@ -7,7 +7,8 @@
     "build": "next build",
     "start": "next start",
     "lint": "eslint",
-    "codegen": "orval"
+    "codegen": "orval",
+    "fetch-swagger": "curl -o swagger.json https://ristaapps.com/api/documentation/swagger.json && echo 'Swagger spec downloaded to swagger.json'"
   },
   "dependencies": {
     "@reduxjs/toolkit": "^2.5.0",

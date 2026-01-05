@@ -190,17 +190,57 @@ npm run codegen      # Regenerate API types from Swagger using Orval
 
 ### Code Generation
 
-This project uses [Orval](https://orval.dev/) to generate TypeScript types and API functions from the Swagger/OpenAPI specification.
+This project uses [Orval](https://orval.dev/) to generate TypeScript types and API functions from the Rista POS API Swagger/OpenAPI specification.
 
 **Configuration**: `orval.config.js`
-- Input: `swagger.json` (OpenAPI 3.0 spec)
-- Output: `src/generated/rista/`
-- Client: Axios with custom instance for authentication
-- Mode: Single file generation
+
+The configuration is set up to use the **live Rista API Swagger endpoint** (`https://ristaapps.com/api/documentation/swagger.json`) to ensure types are always up-to-date with the latest API changes.
+
+#### Option 1: Use Remote Swagger Endpoint (Recommended)
+
+When the Rista Swagger endpoint is accessible from your environment:
+
+1. Update `orval.config.js`:
+   ```javascript
+   input: 'https://ristaapps.com/api/documentation/swagger.json',
+   ```
+
+2. Run code generation:
+   ```bash
+   npm run codegen
+   ```
+
+This ensures you always have the latest API types and endpoints from Rista.
+
+#### Option 2: Use Local Swagger File
+
+If the remote endpoint is not accessible (network restrictions, offline development):
+
+1. Fetch the latest swagger file:
+   ```bash
+   npm run fetch-swagger
+   # Or manually:
+   curl -o swagger.json https://ristaapps.com/api/documentation/swagger.json
+   ```
+
+2. Update `orval.config.js` (if needed):
+   ```javascript
+   input: './swagger.json',  // Local file
+   ```
+
+3. Run code generation:
+   ```bash
+   npm run codegen
+   ```
 
 **Generated files**:
 - `src/generated/rista/ristaApi.ts` - API functions (`getBranches`, `getAnalyticsSalesSummary`, `getSalesPage`)
-- `src/generated/rista/models/` - TypeScript interfaces for all schemas
+- `src/generated/rista/models/` - TypeScript interfaces for all schemas (Branch, Sale, SalesSummary, etc.)
+
+**Output Configuration**:
+- **Client**: Axios with custom instance for authentication
+- **Mode**: Single file generation
+- **Clean**: Automatically removes old generated files
 
 The custom Axios instance (`src/lib/ristaClient.ts`) automatically injects authentication headers (x-api-key, x-api-token) for all API calls.
 

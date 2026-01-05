@@ -1,5 +1,9 @@
 module.exports = {
   rista: {
+    // Use remote Swagger endpoint when accessible:
+    // input: 'https://ristaapps.com/api/documentation/swagger.json',
+    
+    // For local development or restricted environments, use local file:
     input: './swagger.json',
     output: {
       mode: 'single',
