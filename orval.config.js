@@ -1,27 +1,32 @@
+const dotenv = require("dotenv");
+
+dotenv.config();
+
 module.exports = {
   rista: {
-    // Use remote Swagger endpoint when accessible:
     input: {
-      target: 'https://ristaapps.com/api/documentation/swagger.json',
+      // Use live Rista Swagger endpoint for latest API types
+      target:
+        process.env.RISTA_SWAGGER_URL ||
+        "https://ristaapps.com/api/documentation/swagger.json",
+      
+      // Filter to only include needed endpoints and types
       filters: {
-          tags: ['Sale', 'Business', 'Analytics']
-        },
+        tags: ["Sale", "Business", "Analytics"],
       },
-    
-    // For local development or restricted environments, use local file:
-    // input: './swagger.json',
+    },
     output: {
-      mode: 'single',
-      target: './src/generated/rista/ristaApi.ts',
-      schemas: './src/generated/rista/models',
-      client: 'axios',
+      target: "./src/generated/rista/ristaApi.ts",
+      mode: "single",
+      schemas: "./src/generated/rista/models",
+      client: "axios",
       clean: true,
       prettier: true,
       tslint: true,
       override: {
         mutator: {
-          path: './src/lib/ristaClient.ts',
-          name: 'customInstance',
+          path: "./src/lib/ristaClient.ts",
+          name: "customInstance",
         },
       },
     },
