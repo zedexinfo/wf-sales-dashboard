@@ -10,6 +10,16 @@
  * ---------------------------------------------------------------
  */
 
+export interface BranchList {
+  branches?: Branch[];
+}
+
+export interface Branch {
+  id?: string;
+  name?: string;
+  location?: string;
+}
+
 export interface SalesSummary {
   totalSales?: number;
   totalOrders?: number;
@@ -306,6 +316,22 @@ export class HttpClient<SecurityDataType = unknown> {
 export class Api<
   SecurityDataType extends unknown,
 > extends HttpClient<SecurityDataType> {
+  branches = {
+    /**
+     * No description
+     *
+     * @name BranchesList
+     * @summary Get all branches
+     * @request GET:/branches
+     */
+    branchesList: (params: RequestParams = {}) =>
+      this.request<BranchList, any>({
+        path: `/branches`,
+        method: "GET",
+        format: "json",
+        ...params,
+      }),
+  };
   analytics = {
     /**
      * No description

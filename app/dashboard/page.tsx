@@ -4,6 +4,7 @@ import { useEffect } from 'react';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import {
   fetchDashboardData,
+  fetchBranches,
   setBranch,
   setDate,
 } from '@/src/store/dashboardSlice';
@@ -25,12 +26,20 @@ const PAYMENT_COLORS = ['#0088FE', '#00C49F', '#FFBB28'];
 
 export default function DashboardPage() {
   const dispatch = useAppDispatch();
-  const { branch, date, data, loading, error } = useAppSelector(
+  const { branch, date, data, branches, branchesLoading, loading, error } = useAppSelector(
     (state) => state.dashboard
   );
 
+  // Fetch branches on mount
   useEffect(() => {
-    dispatch(fetchDashboardData({ branch, date }));
+    dispatch(fetchBranches());
+  }, [dispatch]);
+
+  // Fetch dashboard data when branch or date changes (and branch is set)
+  useEffect(() => {
+    if (branch) {
+      dispatch(fetchDashboardData({ branch, date }));
+    }
   }, [branch, date, dispatch]);
 
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
@@ -42,7 +51,9 @@ export default function DashboardPage() {
   };
 
   const handleRefresh = () => {
-    dispatch(fetchDashboardData({ branch, date }));
+    if (branch) {
+      dispatch(fetchDashboardData({ branch, date }));
+    }
   };
 
   // Prepare chart data
@@ -92,11 +103,20 @@ export default function DashboardPage() {
                 id="branch"
                 value={branch}
                 onChange={handleBranchChange}
-                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                disabled={branchesLoading}
+                className="w-full px-4 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 disabled:bg-gray-100"
               >
-                <option value="BR001">Branch 001</option>
-                <option value="BR002">Branch 002</option>
-                <option value="BR003">Branch 003</option>
+                {branchesLoading ? (
+                  <option value="">Loading branches...</option>
+                ) : branches.length === 0 ? (
+                  <option value="">No branches available</option>
+                ) : (
+                  branches.map((b) => (
+                    <option key={b.id} value={b.id}>
+                      {b.name} {b.location ? `- ${b.location}` : ''}
+                    </option>
+                  ))
+                )}
               </select>
             </div>
             <div className="flex-1">

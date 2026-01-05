@@ -11,6 +11,23 @@
     }
   ],
   "paths": {
+    "/branches": {
+      "get": {
+        "summary": "Get all branches",
+        "responses": {
+          "200": {
+            "description": "List of branches",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/BranchList"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/analytics/sales/summary": {
       "get": {
         "summary": "Get sales summary",
@@ -94,6 +111,31 @@
   },
   "components": {
     "schemas": {
+      "BranchList": {
+        "type": "object",
+        "properties": {
+          "branches": {
+            "type": "array",
+            "items": {
+              "$ref": "#/components/schemas/Branch"
+            }
+          }
+        }
+      },
+      "Branch": {
+        "type": "object",
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          },
+          "location": {
+            "type": "string"
+          }
+        }
+      },
       "SalesSummary": {
         "type": "object",
         "properties": {

@@ -17,6 +17,12 @@ export interface TopItem {
   qty: number;
 }
 
+export interface Branch {
+  id: string;
+  name: string;
+  location?: string;
+}
+
 export interface DashboardData {
   summary: SalesSummary;
   payments: PaymentAnalytics;
@@ -29,6 +35,8 @@ export interface DashboardState {
   branch: string;
   date: string;
   data: DashboardData | null;
+  branches: Branch[];
+  branchesLoading: boolean;
   loading: boolean;
   error: string | null;
 }
