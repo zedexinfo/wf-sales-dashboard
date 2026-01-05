@@ -7,10 +7,11 @@ import { generateRistaJWT } from './jwt';
  */
 export function createRistaClient() {
   const apiKey = process.env.RISTA_API_KEY;
+  const secretKey = process.env.RISTA_SECRET_KEY;
   const baseURL = process.env.RISTA_BASE_URL || 'https://api.ristaapps.com/v1';
 
-  if (!apiKey) {
-    throw new Error('RISTA_API_KEY must be set in environment variables');
+  if (!apiKey || !secretKey) {
+    throw new Error('RISTA_API_KEY and RISTA_SECRET_KEY must be set in environment variables');
   }
 
   const token = generateRistaJWT();

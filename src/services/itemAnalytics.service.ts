@@ -49,8 +49,9 @@ export function computeOrdersByHour(sales: Sale[]): number[] {
 }
 
 /**
- * Compute orders by weekday (0=Sunday, 1=Monday, ..., 6=Saturday)
- * Returns array [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
+ * Compute orders by weekday
+ * Input: JavaScript Date.getDay() format (0=Sunday, 1=Monday, ..., 6=Saturday)
+ * Output: Reordered array [Mon, Tue, Wed, Thu, Fri, Sat, Sun]
  */
 export function computeOrdersByWeekday(sales: Sale[]): number[] {
   const weekdayOrders = new Array(7).fill(0); // [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
