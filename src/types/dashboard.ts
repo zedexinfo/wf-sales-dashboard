@@ -1,3 +1,5 @@
+export type DashboardPeriod = "Day" | "Week" | "Month" | "Year" | "Custom";
+
 export interface SalesSummary {
   totalSales: number;
   totalOrders: number;
@@ -17,6 +19,10 @@ export interface TopItem {
   qty: number;
 }
 
+export interface TopItemDetail extends TopItem {
+  revenue: number;
+}
+
 export interface Branch {
   id: string;
   name: string;
@@ -29,6 +35,7 @@ export interface DashboardData {
   ordersByHour: number[];
   ordersByWeekday: number[];
   topItem: TopItem;
+  topItems: TopItemDetail[];
 }
 
 export interface DashboardState {

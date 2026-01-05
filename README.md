@@ -93,7 +93,7 @@ src/
 │   ├── dashboard/page.tsx             # Dashboard UI
 │   ├── layout.tsx                     # Root layout with Redux
 │   └── page.tsx                       # Home page (redirects)
-├── generated/rista/                   # Auto-generated API types
+├── api/                               # Orval-generated REST clients & schemas
 ├── lib/
 │   ├── jwt.ts                        # JWT generator (HS256)
 │   └── ristaClient.ts                # Rista API client wrapper
@@ -234,12 +234,14 @@ If the remote endpoint is not accessible (network restrictions, offline developm
    ```
 
 **Generated files**:
-- `src/generated/rista/ristaApi.ts` - API functions (`getBranches`, `getAnalyticsSalesSummary`, `getSalesPage`)
-- `src/generated/rista/models/` - TypeScript interfaces for all schemas (Branch, Sale, SalesSummary, etc.)
+- `src/api/analytics/analytics.ts` - Analytics endpoints (`getAnalyticsSalesSummary`, ...)
+- `src/api/business/business.ts` - Branch & outlet endpoints (`getBranchList`, ...)
+- `src/api/sale/sale.ts` - Sales endpoints (`getSalesPage`, ...)
+- `src/api/ristaPlatformAPI.schemas.ts` - Shared TypeScript interfaces (Branch, Sale, SalesSummary, etc.)
 
 **Output Configuration**:
 - **Client**: Axios with custom instance for authentication
-- **Mode**: Single file generation
+- **Mode**: Tags split (one file per OpenAPI tag under `src/api`)
 - **Clean**: Automatically removes old generated files
 
 The custom Axios instance (`src/lib/ristaClient.ts`) automatically injects authentication headers (x-api-key, x-api-token) for all API calls.

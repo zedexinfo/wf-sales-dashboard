@@ -1,10 +1,15 @@
-import { createSlice, createAsyncThunk, PayloadAction } from '@reduxjs/toolkit';
-import { DashboardState, DashboardData, Branch } from '../types/dashboard';
+import { createAsyncThunk, createSlice, PayloadAction } from "@reduxjs/toolkit";
+import {
+  Branch,
+  DashboardData,
+  DashboardPeriod,
+  DashboardState,
+} from "../types/dashboard";
 
 // Initial state
 const initialState: DashboardState = {
-  branch: '',
-  date: new Date().toISOString().split('T')[0], // Today's date
+  branch: "",
+  date: new Date().toISOString().split("T")[0], // Today's date
   data: null,
   branches: [],
   branchesLoading: false,
@@ -14,12 +19,12 @@ const initialState: DashboardState = {
 
 // Async thunk to fetch branches
 export const fetchBranches = createAsyncThunk(
-  'dashboard/fetchBranches',
+  "dashboard/fetchBranches",
   async () => {
-    const response = await fetch('/api/branches');
+    const response = await fetch("/api/branches");
 
     if (!response.ok) {
-      throw new Error('Failed to fetch branches');
+      throw new Error("Failed to fetch branches");
     }
 
     const data: { branches: Branch[] } = await response.json();
@@ -29,14 +34,35 @@ export const fetchBranches = createAsyncThunk(
 
 // Async thunk to fetch dashboard data
 export const fetchDashboardData = createAsyncThunk(
-  'dashboard/fetchData',
-  async ({ branch, date }: { branch: string; date: string }) => {
-    const response = await fetch(
-      `/api/dashboard/branch?branch=${encodeURIComponent(branch)}&date=${encodeURIComponent(date)}`
-    );
+  "dashboard/fetchData",
+  async ({
+    branch,
+    date,
+    period,
+    customRange,
+  }: {
+    branch: string;
+    date: string;
+    period: DashboardPeriod;
+    customRange?: { start: string; end: string };
+  }) => {
+    const query = new URLSearchParams({ branch, period });
+
+    if (period === "Custom") {
+      if (customRange?.start) {
+        query.set("startDate", customRange.start);
+      }
+      if (customRange?.end) {
+        query.set("endDate", customRange.end);
+      }
+    } else {
+      query.set("date", date);
+    }
+
+    const response = await fetch(`/api/dashboard/branch?${query.toString()}`);
 
     if (!response.ok) {
-      throw new Error('Failed to fetch dashboard data');
+      throw new Error("Failed to fetch dashboard data");
     }
 
     const data: DashboardData = await response.json();
@@ -46,7 +72,7 @@ export const fetchDashboardData = createAsyncThunk(
 
 // Dashboard slice
 const dashboardSlice = createSlice({
-  name: 'dashboard',
+  name: "dashboard",
   initialState,
   reducers: {
     setBranch: (state, action: PayloadAction<string>) => {
@@ -84,7 +110,7 @@ const dashboardSlice = createSlice({
       })
       .addCase(fetchDashboardData.rejected, (state, action) => {
         state.loading = false;
-        state.error = action.error.message || 'Failed to fetch data';
+        state.error = action.error.message || "Failed to fetch data";
       });
   },
 });

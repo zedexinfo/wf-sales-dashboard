@@ -1,7 +1,7 @@
-import { Sale as RistaSale } from "../generated/rista/models";
-import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
+import { Sale as RistaSale } from "../api/ristaPlatformAPI.schemas";
+import { getSale } from "../api/sale/sale";
 
-const ristaAPI = getRistaPlatformAPI();
+const saleAPI = getSale();
 
 type GeneratedSale = RistaSale;
 
@@ -25,7 +25,7 @@ export async function getAllSales(
 
   try {
     do {
-      const { data: salesPageData } = await ristaAPI.getSalesPage({
+      const { data: salesPageData } = await saleAPI.getSalesPage({
         branch,
         day,
         ...(lastKey && { lastKey }),

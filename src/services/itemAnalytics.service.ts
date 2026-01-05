@@ -1,35 +1,67 @@
-import { Sale as RistaSale } from '../generated/rista/models';
+import { Sale as RistaSale } from "../api/ristaPlatformAPI.schemas";
+import { TopItemDetail } from "../types/dashboard";
 
 /**
  * Compute item analytics from sales data
  * Finds the most sold item by aggregating quantities
  */
-export function computeTopItem(sales: RistaSale[]): { name: string; qty: number } {
-  const itemMap = new Map<string, number>();
+export function computeTopItem(sales: RistaSale[]): {
+  name: string;
+  qty: number;
+} {
+  const [top] = computeTopItems(sales, 1);
 
-  for (const sale of sales) {
-    for (const item of sale.items || []) {
-      // Use shortName or longName from Rista API
-      const itemName = item.shortName || item.longName || 'Unknown Item';
-      const currentQty = itemMap.get(itemName) || 0;
-      itemMap.set(itemName, currentQty + (item.quantity || 0));
-    }
-  }
-
-  let topItemName = '';
-  let topItemQty = 0;
-
-  for (const [name, qty] of itemMap.entries()) {
-    if (qty > topItemQty) {
-      topItemName = name;
-      topItemQty = qty;
-    }
+  if (!top) {
+    return {
+      name: "N/A",
+      qty: 0,
+    };
   }
 
   return {
-    name: topItemName || 'N/A',
-    qty: topItemQty,
+    name: top.name,
+    qty: top.qty,
   };
+}
+
+/**
+ * Compute ranked list of top-selling items (quantity driven)
+ */
+export function computeTopItems(
+  sales: RistaSale[],
+  limit = 10
+): TopItemDetail[] {
+  const itemMap = new Map<string, TopItemDetail>();
+
+  for (const sale of sales) {
+    for (const item of sale.items || []) {
+      const itemName = item.shortName || item.longName || "Unknown Item";
+      const existing = itemMap.get(itemName) || {
+        name: itemName,
+        qty: 0,
+        revenue: 0,
+      };
+
+      existing.qty += item.quantity || 0;
+      const revenueContribution =
+        item.netAmount ??
+        item.itemTotalAmount ??
+        item.itemAmount ??
+        (item.unitPrice || 0) * (item.quantity || 0);
+      existing.revenue += revenueContribution;
+
+      itemMap.set(itemName, existing);
+    }
+  }
+
+  return Array.from(itemMap.values())
+    .sort((a, b) => {
+      if (b.qty !== a.qty) {
+        return b.qty - a.qty;
+      }
+      return b.revenue - a.revenue;
+    })
+    .slice(0, limit);
 }
 
 /**
@@ -40,7 +72,7 @@ export function computeOrdersByHour(sales: RistaSale[]): number[] {
 
   for (const sale of sales) {
     // Use invoiceDate or createdDate from Rista Sale model
-    const date = new Date(sale.invoiceDate || sale.createdDate || '');
+    const date = new Date(sale.invoiceDate || sale.createdDate || "");
     const hour = date.getHours();
     if (hour >= 0 && hour < 24) {
       hourlyOrders[hour]++;
@@ -59,7 +91,7 @@ export function computeOrdersByWeekday(sales: RistaSale[]): number[] {
   const weekdayOrders = new Array(7).fill(0); // [Sun, Mon, Tue, Wed, Thu, Fri, Sat]
 
   for (const sale of sales) {
-    const date = new Date(sale.invoiceDate || sale.createdDate || '');
+    const date = new Date(sale.invoiceDate || sale.createdDate || "");
     const day = date.getDay(); // 0=Sunday, 6=Saturday
     if (day >= 0 && day < 7) {
       weekdayOrders[day]++;

@@ -1,7 +1,7 @@
-import type { Branch as RistaBranch } from "../generated/rista/models";
-import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
+import { getBusiness } from "../api/business/business";
+import type { Branch as RistaBranch } from "../api/ristaPlatformAPI.schemas";
 
-const ristaAPI = getRistaPlatformAPI();
+const businessAPI = getBusiness();
 
 export interface Branch {
   id: string;
@@ -15,7 +15,7 @@ export interface Branch {
  */
 export async function getBranches(): Promise<Branch[]> {
   try {
-    const response = await ristaAPI.getBranchList();
+    const response = await businessAPI.getBranchList();
     // Map Rista Branch model to our dashboard Branch interface
     return (response.data || []).map((ristaBranch: RistaBranch) => ({
       id: ristaBranch.branchCode,
