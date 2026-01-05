@@ -1,31 +1,25 @@
-import { getRistaPOSAPI } from '../generated/rista/ristaApi';
+import { Sale as RistaSale } from "../generated/rista/models";
+import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
 
-const ristaAPI = getRistaPOSAPI();
+const ristaAPI = getRistaPlatformAPI();
 
-export interface Sale {
-  id: string;
-  branch: string;
-  date: string;
-  total: number;
-  tax: number;
-  discount: number;
-  paymentMode: string;
-  subMode?: string;
-  items: SaleItem[];
-}
+type GeneratedSale = RistaSale;
 
-export interface SaleItem {
-  name: string;
-  quantity: number;
-  price: number;
-}
+export type Sale = GeneratedSale;
+
+export type SaleItem = GeneratedSale extends { items: Array<infer Item> }
+  ? Item
+  : never;
 
 /**
  * Fetch all sales for a given date and branch using pagination
  * Endpoint: GET /sales/page
  * Loops until lastKey is null
  */
-export async function getAllSales(branch: string, date: string): Promise<Sale[]> {
+export async function getAllSales(
+  branch: string,
+  day: string
+): Promise<Sale[]> {
   const allSales: Sale[] = [];
   let lastKey: string | undefined = undefined;
 
@@ -33,11 +27,11 @@ export async function getAllSales(branch: string, date: string): Promise<Sale[]>
     do {
       const response = await ristaAPI.getSalesPage({
         branch,
-        date,
+        day,
         ...(lastKey && { lastKey }),
       });
 
-      const sales = (response.sales || []) as Sale[];
+      const sales: Sale[] = response.data ?? [];
       allSales.push(...sales);
 
       lastKey = response.lastKey || undefined;
@@ -45,7 +39,7 @@ export async function getAllSales(branch: string, date: string): Promise<Sale[]>
 
     return allSales;
   } catch (error) {
-    console.error('Error fetching sales:', error);
+    console.error("Error fetching sales:", error);
     return [];
   }
 }

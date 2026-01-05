@@ -1,7 +1,7 @@
-import { getRistaPOSAPI } from '../generated/rista/ristaApi';
-import { SalesSummary } from '../types/dashboard';
+import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
+import { SalesSummary } from "../types/dashboard";
 
-const ristaAPI = getRistaPOSAPI();
+const ristaAPI = getRistaPlatformAPI();
 
 /**
  * Fetch sales summary from Rista API
@@ -24,7 +24,7 @@ export async function getSalesSummary(
       totalDiscount: response.totalDiscount || 0,
     };
   } catch (error) {
-    console.error('Error fetching sales summary:', error);
+    console.error("Error fetching sales summary:", error);
     // Return default values on error
     return {
       totalSales: 0,

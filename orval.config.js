@@ -1,16 +1,23 @@
 module.exports = {
   rista: {
     // Use remote Swagger endpoint when accessible:
-    // input: 'https://ristaapps.com/api/documentation/swagger.json',
+    input: {
+      target: 'https://ristaapps.com/api/documentation/swagger.json',
+      filters: {
+          tags: ['Sale', 'Business', 'Analytics']
+        },
+      },
     
     // For local development or restricted environments, use local file:
-    input: './swagger.json',
+    // input: './swagger.json',
     output: {
       mode: 'single',
       target: './src/generated/rista/ristaApi.ts',
       schemas: './src/generated/rista/models',
       client: 'axios',
       clean: true,
+      prettier: true,
+      tslint: true,
       override: {
         mutator: {
           path: './src/lib/ristaClient.ts',

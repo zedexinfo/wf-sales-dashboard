@@ -1,18 +1,18 @@
-import { getRistaPOSAPI } from '../generated/rista/ristaApi';
-import type { Branch } from '../generated/rista/models';
+import type { Branch, BranchListResult } from "../generated/rista/models";
+import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
 
-const ristaAPI = getRistaPOSAPI();
+const ristaAPI = getRistaPlatformAPI();
 
 /**
  * Fetch all branches from Rista API
  * Endpoint: GET /branches
  */
-export async function getBranches(): Promise<Branch[]> {
+export async function getBranches(): Promise<BranchListResult> {
   try {
-    const response = await ristaAPI.getBranches();
-    return response.branches || [];
+    const response = await ristaAPI.getBranchList();
+    return response || [];
   } catch (error) {
-    console.error('Error fetching branches:', error);
+    console.error("Error fetching branches:", error);
     // Return empty array on error
     return [];
   }
