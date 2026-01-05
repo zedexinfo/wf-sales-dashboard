@@ -1,5 +1,5 @@
-import type { Branch as RistaBranch, BranchListResult } from '../generated/rista/models';
-import { getRistaPlatformAPI } from '../generated/rista/ristaApi';
+import type { Branch as RistaBranch } from "../generated/rista/models";
+import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
 
 const ristaAPI = getRistaPlatformAPI();
 
@@ -15,16 +15,16 @@ export interface Branch {
  */
 export async function getBranches(): Promise<Branch[]> {
   try {
-    const response: BranchListResult = await ristaAPI.getBranchList();
-    
+    const response = await ristaAPI.getBranchList();
     // Map Rista Branch model to our dashboard Branch interface
-    return (response || []).map((ristaBranch: RistaBranch) => ({
+    return (response.data || []).map((ristaBranch: RistaBranch) => ({
       id: ristaBranch.branchCode,
       name: ristaBranch.branchName,
-      location: ristaBranch.address?.city || ristaBranch.address?.state || undefined,
+      location:
+        ristaBranch.address?.city || ristaBranch.address?.state || undefined,
     }));
   } catch (error) {
-    console.error('Error fetching branches:', error);
+    console.error("Error fetching branches:", error);
     // Return empty array on error
     return [];
   }

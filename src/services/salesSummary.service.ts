@@ -1,5 +1,5 @@
-import { getRistaPlatformAPI } from '../generated/rista/ristaApi';
-import { SalesSummary } from '../types/dashboard';
+import { getRistaPlatformAPI } from "../generated/rista/ristaApi";
+import { SalesSummary } from "../types/dashboard";
 
 const ristaAPI = getRistaPlatformAPI();
 
@@ -19,13 +19,13 @@ export async function getSalesSummary(
 
     // Map Rista API fields to our dashboard types
     return {
-      totalSales: response.netAmount || response.grossAmount || 0,
-      totalOrders: response.noOfSales || 0,
-      totalTax: response.taxTotal || 0,
-      totalDiscount: response.discountTotal || 0,
+      totalSales: response.data.netAmount || response.data.grossAmount || 0,
+      totalOrders: response.data.noOfSales || 0,
+      totalTax: response.data.taxTotal || 0,
+      totalDiscount: response.data.discountTotal || 0,
     };
   } catch (error) {
-    console.error('Error fetching sales summary:', error);
+    console.error("Error fetching sales summary:", error);
     // Return default values on error
     return {
       totalSales: 0,

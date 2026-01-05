@@ -25,16 +25,16 @@ export async function getAllSales(
 
   try {
     do {
-      const response = await ristaAPI.getSalesPage({
+      const { data: salesPageData } = await ristaAPI.getSalesPage({
         branch,
         day,
         ...(lastKey && { lastKey }),
       });
 
-      const sales: Sale[] = response.data ?? [];
+      const sales: Sale[] = salesPageData.data ?? [];
       allSales.push(...sales);
 
-      lastKey = response.lastKey || undefined;
+      lastKey = salesPageData.lastKey || undefined;
     } while (lastKey);
 
     return allSales;
