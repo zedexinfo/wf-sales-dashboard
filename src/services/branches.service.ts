@@ -1,4 +1,4 @@
-import { createRistaClient } from '../lib/ristaClient';
+import { createRistaClient } from "../lib/ristaClient";
 
 export interface Branch {
   id: string;
@@ -15,10 +15,10 @@ export async function getBranches(): Promise<Branch[]> {
 
   try {
     const response = await client.branches.branchesList();
-    const branches = (response.data.branches || []) as Branch[];
+    const branches = (response.data || []) as Branch[];
     return branches;
   } catch (error) {
-    console.error('Error fetching branches:', error);
+    console.error("Error fetching branches:", error);
     // Return empty array on error
     return [];
   }

@@ -82,7 +82,7 @@ export interface ApiConfig<SecurityDataType = unknown> {
   baseUrl?: string;
   baseApiParams?: Omit<RequestParams, "baseUrl" | "cancelToken" | "signal">;
   securityWorker?: (
-    securityData: SecurityDataType | null,
+    securityData: SecurityDataType | null
   ) => Promise<RequestParams | void> | RequestParams | void;
   customFetch?: typeof fetch;
 }
@@ -128,7 +128,9 @@ export class HttpClient<SecurityDataType = unknown> {
 
   protected encodeQueryParam(key: string, value: any) {
     const encodedKey = encodeURIComponent(key);
-    return `${encodedKey}=${encodeURIComponent(typeof value === "number" ? value : `${value}`)}`;
+    return `${encodedKey}=${encodeURIComponent(
+      typeof value === "number" ? value : `${value}`
+    )}`;
   }
 
   protected addQueryParam(query: QueryParamsType, key: string) {
@@ -143,13 +145,13 @@ export class HttpClient<SecurityDataType = unknown> {
   protected toQueryString(rawQuery?: QueryParamsType): string {
     const query = rawQuery || {};
     const keys = Object.keys(query).filter(
-      (key) => "undefined" !== typeof query[key],
+      (key) => "undefined" !== typeof query[key]
     );
     return keys
       .map((key) =>
         Array.isArray(query[key])
           ? this.addArrayQueryParam(query, key)
-          : this.addQueryParam(query, key),
+          : this.addQueryParam(query, key)
       )
       .join("&");
   }
@@ -184,8 +186,8 @@ export class HttpClient<SecurityDataType = unknown> {
           property instanceof Blob
             ? property
             : typeof property === "object" && property !== null
-              ? JSON.stringify(property)
-              : `${property}`,
+            ? JSON.stringify(property)
+            : `${property}`
         );
         return formData;
       }, new FormData());
@@ -195,7 +197,7 @@ export class HttpClient<SecurityDataType = unknown> {
 
   protected mergeRequestParams(
     params1: RequestParams,
-    params2?: RequestParams,
+    params2?: RequestParams
   ): RequestParams {
     return {
       ...this.baseApiParams,
@@ -210,7 +212,7 @@ export class HttpClient<SecurityDataType = unknown> {
   }
 
   protected createAbortSignal = (
-    cancelToken: CancelToken,
+    cancelToken: CancelToken
   ): AbortSignal | undefined => {
     if (this.abortControllers.has(cancelToken)) {
       const abortController = this.abortControllers.get(cancelToken);
@@ -256,7 +258,9 @@ export class HttpClient<SecurityDataType = unknown> {
     const responseFormat = format || requestParams.format;
 
     return this.customFetch(
-      `${baseUrl || this.baseUrl || ""}${path}${queryString ? `?${queryString}` : ""}`,
+      `${baseUrl || this.baseUrl || ""}${path}${
+        queryString ? `?${queryString}` : ""
+      }`,
       {
         ...requestParams,
         headers: {
@@ -273,7 +277,7 @@ export class HttpClient<SecurityDataType = unknown> {
           typeof body === "undefined" || body === null
             ? null
             : payloadFormatter(body),
-      },
+      }
     ).then(async (response) => {
       const r = response as HttpResponse<T, E>;
       r.data = null as unknown as T;
@@ -314,7 +318,7 @@ export class HttpClient<SecurityDataType = unknown> {
  * Rista POS API for sales analytics
  */
 export class Api<
-  SecurityDataType extends unknown,
+  SecurityDataType extends unknown
 > extends HttpClient<SecurityDataType> {
   branches = {
     /**
@@ -326,7 +330,7 @@ export class Api<
      */
     branchesList: (params: RequestParams = {}) =>
       this.request<BranchList, any>({
-        path: `/branches`,
+        path: `/branch/list`,
         method: "GET",
         format: "json",
         ...params,
@@ -346,7 +350,7 @@ export class Api<
         /** @format date */
         date: string;
       },
-      params: RequestParams = {},
+      params: RequestParams = {}
     ) =>
       this.request<SalesSummary, any>({
         path: `/analytics/sales/summary`,
@@ -371,7 +375,7 @@ export class Api<
         date: string;
         lastKey?: string;
       },
-      params: RequestParams = {},
+      params: RequestParams = {}
     ) =>
       this.request<SalesPage, any>({
         path: `/sales/page`,
