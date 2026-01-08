@@ -1,4 +1,4 @@
-export type DashboardPeriod = "Day" | "Week";
+export type DashboardPeriod = "Day" | "Week" | "Month" | "Year" | "Custom";
 
 export interface SalesSummary {
   totalSales: number;

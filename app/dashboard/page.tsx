@@ -40,9 +40,9 @@ const PERIOD_OPTIONS: DashboardPeriod[] = ['Day', 'Week'];
 const PERIOD_CONTEXT_LABEL: Record<DashboardPeriod, string> = {
   Day: 'today',
   Week: 'this week',
-  // Month: 'this month',
-  // Year: 'this year',
-  // Custom: 'this range',
+  Month: 'this month',
+  Year: 'this year',
+  Custom: 'this range',
 };
 
 function parseInputDate(value: string): Date | null {
@@ -74,41 +74,41 @@ function formatFriendlyPeriodLabel(
   period: DashboardPeriod,
   customRange?: { start?: string; end?: string }
 ): string {
-  // if (period === 'Custom') {
-  //   if (!customRange?.start || !customRange?.end) {
-  //     return 'Choose a valid range';
-  //   }
+  if (period === 'Custom') {
+    if (!customRange?.start || !customRange?.end) {
+      return 'Choose a valid range';
+    }
 
-  //   const rangeStart = parseInputDate(customRange.start);
-  //   const rangeEnd = parseInputDate(customRange.end);
+    const rangeStart = parseInputDate(customRange.start);
+    const rangeEnd = parseInputDate(customRange.end);
 
-  //   if (!rangeStart || !rangeEnd) {
-  //     return 'Choose a valid range';
-  //   }
+    if (!rangeStart || !rangeEnd) {
+      return 'Choose a valid range';
+    }
 
-  //   const startLabel = rangeStart.toLocaleDateString('en-US', {
-  //     month: 'short',
-  //     day: 'numeric',
-  //     year: 'numeric',
-  //   });
-  //   const endLabel = rangeEnd.toLocaleDateString('en-US', {
-  //     month: 'short',
-  //     day: 'numeric',
-  //     year: 'numeric',
-  //   });
+    const startLabel = rangeStart.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
+    const endLabel = rangeEnd.toLocaleDateString('en-US', {
+      month: 'short',
+      day: 'numeric',
+      year: 'numeric',
+    });
 
-  //   return `${startLabel} – ${endLabel}`;
-  // }
+    return `${startLabel} – ${endLabel}`;
+  }
 
   const parsedDate = parseInputDate(dateValue);
 
   if (!parsedDate) {
-    // if (period === 'Year') {
-    //   return 'Choose a year';
-    // }
-    // if (period === 'Month') {
-    //   return 'Choose a month';
-    // }
+    if (period === 'Year') {
+      return 'Choose a year';
+    }
+    if (period === 'Month') {
+      return 'Choose a month';
+    }
     return 'Choose a date';
   }
 
@@ -187,12 +187,12 @@ export default function DashboardPage() {
       return;
     }
 
-    // if (period === 'Custom') {
-    //   if (isCustomRangeValid) {
-    //     dispatch(fetchDashboardData({ branch, date, period, customRange }));
-    //   }
-    //   return;
-    // }
+    if (period === 'Custom') {
+      if (isCustomRangeValid) {
+        dispatch(fetchDashboardData({ branch, date, period, customRange }));
+      }
+      return;
+    }
 
     dispatch(fetchDashboardData({ branch, date, period }));
   }, [branch, customRange, date, dispatch, isCustomRangeValid, period]);
@@ -236,12 +236,12 @@ export default function DashboardPage() {
       return;
     }
 
-    // if (period === 'Custom') {
-    //   if (isCustomRangeValid) {
-    //     dispatch(fetchDashboardData({ branch, date, period, customRange }));
-    //   }
-    //   return;
-    // }
+    if (period === 'Custom') {
+      if (isCustomRangeValid) {
+        dispatch(fetchDashboardData({ branch, date, period, customRange }));
+      }
+      return;
+    }
 
     dispatch(fetchDashboardData({ branch, date, period }));
   };
@@ -295,7 +295,7 @@ export default function DashboardPage() {
     [customRange, date, period]
   );
   const rawContextLabel = PERIOD_CONTEXT_LABEL[period];
-  const summaryContextLabel = rawContextLabel;
+  const summaryContextLabel = period === 'Custom' ? 'over this range' : rawContextLabel;
 
   const summaryCards = data
     ? [
@@ -460,14 +460,13 @@ export default function DashboardPage() {
 
             <div className="flex flex-col">
               <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                {/* {period === 'Month'
+                {period === 'Month'
                   ? 'Month'
                   : period === 'Year'
                   ? 'Year'
                   : period === 'Custom'
                   ? 'Custom Range'
-                  : 'Date'} */}
-                {period} Selection
+                  : 'Date'}
               </label>
               {(period === 'Day' || period === 'Week') && (
                 <input
@@ -478,7 +477,7 @@ export default function DashboardPage() {
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
-              {/* {period === 'Month' && (
+              {period === 'Month' && (
                 <input
                   id="month"
                   type="month"
@@ -486,8 +485,8 @@ export default function DashboardPage() {
                   onChange={handleMonthChange}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
-              )} */}
-              {/* {period === 'Year' && (
+              )}
+              {period === 'Year' && (
                 <input
                   id="year"
                   type="number"
@@ -497,8 +496,8 @@ export default function DashboardPage() {
                   onChange={handleYearChange}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
-              )} */}
-              {/* {period === 'Custom' && (
+              )}
+              {period === 'Custom' && (
                 <div className="mt-2 grid gap-3 sm:grid-cols-2">
                   <input
                     type="date"
@@ -515,17 +514,17 @@ export default function DashboardPage() {
                     aria-label="End date"
                   />
                 </div>
-              )} */}
-              {/* {period === 'Custom' && !isCustomRangeValid && (
+              )}
+              {period === 'Custom' && !isCustomRangeValid && (
                 <p className="mt-2 text-xs text-red-500">Start date must be on or before end date.</p>
-              )} */}
+              )}
             </div>
 
             <div className="flex items-end">
               <button
                 onClick={handleRefresh}
                 disabled={
-                  loading || (!isCustomRangeValid)
+                  loading || (period === 'Custom' && !isCustomRangeValid)
                 }
                 className="w-full rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#2563EB] px-6 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
               >
