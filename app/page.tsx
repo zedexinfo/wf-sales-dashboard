@@ -38,8 +38,8 @@ const DEMO_CREDENTIALS = [
 
 export default function Home() {
   return (
-    <div className="min-h-screen w-full bg-gradient-to-br from-[#9C27F5] via-[#6C63FF] to-[#1FA2FF] text-white flex items-center justify-center p-6">
-      <div className="max-w-6xl w-full grid gap-10 lg:grid-cols-[1.05fr,0.95fr] items-center">
+    <div className="min-h-screen w-full bg-linear-to-br from-[#9C27F5] via-[#6C63FF] to-[#1FA2FF] text-white flex items-center justify-center p-6">
+      <div className="max-w-6xl w-full grid gap-10 grid-cols-2 items-center">
         <section className="space-y-10">
           <div className="inline-flex items-center gap-3 rounded-full border border-white/30 px-4 py-2 text-sm uppercase tracking-[0.45em] text-white/80">
             <span className="text-lg">🧇</span>

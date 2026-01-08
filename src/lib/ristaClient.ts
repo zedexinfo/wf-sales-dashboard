@@ -6,13 +6,14 @@ import { generateRistaJWT } from "./jwt";
  * Automatically injects x-api-key and x-api-token (JWT) headers
  */
 export const ristaAxiosInstance = axios.create({
-  baseURL: process.env.RISTA_BASE_URL || "https://api.ristaapps.com/v1",
+  baseURL:
+    process.env.NEXT_PUBLIC_RISTA_BASE_URL || "https://api.ristaapps.com/v1",
 });
 
 // Add request interceptor to inject auth headers
 ristaAxiosInstance.interceptors.request.use(
   (config) => {
-    const apiKey = process.env.RISTA_API_KEY;
+    const apiKey = process.env.NEXT_PUBLIC_RISTA_API_KEY;
     if (apiKey) {
       config.headers["x-api-key"] = apiKey;
       config.headers["x-api-token"] = generateRistaJWT();
