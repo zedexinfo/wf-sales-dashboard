@@ -167,6 +167,7 @@ export default function DashboardPage() {
     start: date,
     end: date,
   }));
+  const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'highlights'>('overview');
 
   const isCustomRangeValid = useMemo(() => {
     if (!customRange.start || !customRange.end) {
@@ -382,7 +383,7 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-[#f5f6fb] text-gray-900">
       <header className="bg-[#0f1020] text-white shadow-lg shadow-black/30">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#A855F7] to-[#2563EB] text-2xl">
               🧇
@@ -397,22 +398,13 @@ export default function DashboardPage() {
               type="button"
               className="hidden rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:text-white md:inline-flex"
             >
-              Make a copy
+              Export Data
             </button>
-            <div className="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 font-semibold">
-                AU
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Admin User</p>
-                <p className="text-xs text-white/70">admin@waffleforever.com</p>
-              </div>
-            </div>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-10">
         <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
           <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr,1fr,2fr,auto]">
             <div className="flex flex-col">
@@ -423,7 +415,7 @@ export default function DashboardPage() {
                 id="branch"
                 value={branch}
                 onChange={handleBranchChange}
-                disabled={branchesLoading}
+                disabled={branchesLoading || loading}
                 className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
               >
                 {branchesLoading ? (
@@ -448,6 +440,7 @@ export default function DashboardPage() {
                 id="period"
                 value={period}
                 onChange={handlePeriodChange}
+                disabled={loading}
                 className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
               >
                 {PERIOD_OPTIONS.map((option) => (
@@ -474,6 +467,7 @@ export default function DashboardPage() {
                   type="date"
                   value={date}
                   onChange={handleDateChange}
+                  disabled={loading}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
@@ -483,6 +477,7 @@ export default function DashboardPage() {
                   type="month"
                   value={monthValue}
                   onChange={handleMonthChange}
+                  disabled={loading}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
@@ -494,6 +489,7 @@ export default function DashboardPage() {
                   max="2100"
                   value={yearValue}
                   onChange={handleYearChange}
+                  disabled={loading}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
@@ -503,6 +499,7 @@ export default function DashboardPage() {
                     type="date"
                     value={customRange.start}
                     onChange={handleCustomRangeChange('start')}
+                    disabled={loading}
                     className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                     aria-label="Start date"
                   />
@@ -510,6 +507,7 @@ export default function DashboardPage() {
                     type="date"
                     value={customRange.end}
                     onChange={handleCustomRangeChange('end')}
+                    disabled={loading}
                     className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                     aria-label="End date"
                   />
@@ -543,6 +541,40 @@ export default function DashboardPage() {
               <p className="text-lg font-semibold text-gray-900">{selectedBranchName}</p>
             </div>
           </div>
+
+          {/* Tabs */}
+          <div className="mt-6 flex gap-2 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === 'overview'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('metrics')}
+              className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === 'metrics'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Metrics
+            </button>
+            <button
+              onClick={() => setActiveTab('highlights')}
+              className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === 'highlights'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Highlights
+            </button>
+          </div>
         </section>
 
         {error && (
@@ -560,210 +592,221 @@ export default function DashboardPage() {
 
         {!loading && data && (
           <>
-            <section className="grid gap-5 lg:grid-cols-4">
-              {summaryCards.map((card) => (
-                <div
-                  key={card.label}
-                  className="rounded-3xl border border-white/70 bg-white/90 p-5 shadow-lg shadow-slate-900/5"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {card.label}
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold text-gray-900">{card.value}</p>
-                  <p className="mt-2 text-sm text-gray-500">{card.helper}</p>
-                </div>
-              ))}
-            </section>
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <>
+                <section className="grid gap-5 lg:grid-cols-4">
+                  {summaryCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className="rounded-3xl border border-white/70 bg-white/90 p-5 shadow-lg shadow-slate-900/5"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        {card.label}
+                      </p>
+                      <p className="mt-3 text-3xl font-semibold text-gray-900">{card.value}</p>
+                      <p className="mt-2 text-sm text-gray-500">{card.helper}</p>
+                    </div>
+                  ))}
+                </section>
 
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Revenue Trend</p>
-                    <p className="text-lg font-semibold text-gray-900">Hourly sales momentum</p>
+                <section className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Weekly Performance</p>
+                      <span className="text-xs text-gray-400">Orders by weekday</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={weekdayData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                        <XAxis dataKey="day" stroke="#9AA1B9" />
+                        <YAxis stroke="#9AA1B9" />
+                        <Tooltip />
+                        <Bar dataKey="orders" fill="#22C55E" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                  <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
-                    {period}
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={280} className="mt-6">
-                  <AreaChart data={hourlyPerformance}>
-                    <defs>
-                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#C084FC" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                    <XAxis dataKey="hour" stroke="#9AA1B9" />
-                    <YAxis stroke="#9AA1B9" />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#8B5CF6"
-                      fillOpacity={1}
-                      fill="url(#revenueGradient)"
-                      name="Revenue"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
 
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Hourly Metrics</p>
-                    <p className="text-lg font-semibold text-gray-900">Orders vs revenue</p>
-                  </div>
-                  <span className="text-xs text-gray-400">Local timezone</span>
-                </div>
-                <ResponsiveContainer width="100%" height={280} className="mt-6">
-                  <LineChart data={hourlyPerformance}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                    <XAxis dataKey="hour" stroke="#9AA1B9" />
-                    <YAxis stroke="#9AA1B9" />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={3} dot={false} />
-                    <Line type="monotone" dataKey="revenue" stroke="#F97316" strokeWidth={3} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="text-lg font-semibold text-gray-900">Weekly Performance</p>
-                  <span className="text-xs text-gray-400">Orders by weekday</span>
-                </div>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={weekdayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                    <XAxis dataKey="day" stroke="#9AA1B9" />
-                    <YAxis stroke="#9AA1B9" />
-                    <Tooltip />
-                    <Bar dataKey="orders" fill="#22C55E" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="text-lg font-semibold text-gray-900">Payment Methods</p>
-                  <span className="text-xs text-gray-400">Live split</span>
-                </div>
-                <div className="flex flex-col gap-6 md:flex-row md:items-center">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={paymentData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Payment Methods</p>
+                      <span className="text-xs text-gray-400">Live split</span>
+                    </div>
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={paymentData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {paymentData.map((entry, index) => (
+                              <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ul className="flex-1 space-y-3 text-sm text-gray-600">
                         {paymentData.map((entry, index) => (
-                          <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index]} />
-                        ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <ul className="flex-1 space-y-3 text-sm text-gray-600">
-                    {paymentData.map((entry, index) => (
-                      <li key={entry.name} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className="h-3 w-3 rounded-full"
-                            style={{ backgroundColor: PAYMENT_COLORS[index] }}
-                          ></span>
-                          {entry.name}
-                        </div>
-                        <span className="font-semibold text-gray-900">
-                          {currencyFormatter.format(entry.value)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5 lg:col-span-2">
-                <p className="text-lg font-semibold text-gray-900">Top Selling Highlight</p>
-                <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.4em] text-gray-400">Best Seller</p>
-                    <p className="text-3xl font-semibold text-gray-900">{data.topItem.name}</p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {data.topItem.qty} units sold {summaryContextLabel}
-                    </p>
-                  </div>
-                  <div className="rounded-2xl bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] px-6 py-4 text-right">
-                    <p className="text-sm text-gray-600">Avg order value</p>
-                    <p className="text-2xl font-semibold text-gray-900">
-                      {averageOrderValue ? currencyFormatter.format(averageOrderValue) : '—'}
-                    </p>
-                  </div>
-                </div>
-                <div className="mt-6 rounded-3xl border border-gray-100 bg-white/70">
-                  {topItemDetails.length > 0 ? (
-                    <ul className="divide-y divide-gray-100">
-                      {topItemDetails.map((item, index) => (
-                        <li
-                          key={`${item.name}-${index}`}
-                          className="flex items-center justify-between gap-4 px-4 py-3 text-sm text-gray-600"
-                        >
-                          <div className="flex items-center gap-4">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-gray-900">{item.name}</p>
-                              <p className="text-xs text-gray-500">{item.qty.toLocaleString()} units</p>
+                          <li key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: PAYMENT_COLORS[index] }}
+                              ></span>
+                              {entry.name}
                             </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900">
-                              {currencyFormatter.format(item.revenue)}
-                            </p>
-                            <p className="text-xs text-gray-500">Revenue</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="px-4 py-6 text-sm text-gray-500">
-                      No item-level sales recorded {summaryContextLabel}.
-                    </p>
-                  )}
-                </div>
-                <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-600">
-                  Seamlessly synced with Rista POS — every order, discount, and cash adjustment
-                  stays reconciled with your source of truth.
-                </div>
-              </div>
-
-              <div className="grid gap-4">
-                {highlightCards.map((card) => (
-                  <div
-                    key={card.label}
-                    className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
-                      {card.label}
-                    </p>
-                    <p className="mt-3 text-3xl font-semibold">{card.value}</p>
-                    <p className="mt-1 text-sm">{card.helper}</p>
+                            <span className="font-semibold text-gray-900">
+                              {currencyFormatter.format(entry.value)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
                   </div>
-                ))}
-              </div>
-            </section>
+                </section>
+              </>
+            )}
+
+            {/* Metrics Tab */}
+            {activeTab === 'metrics' && (
+              <section className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Revenue Trend</p>
+                      <p className="text-lg font-semibold text-gray-900">Hourly sales momentum</p>
+                    </div>
+                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
+                      {period}
+                    </span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280} className="mt-6">
+                    <AreaChart data={hourlyPerformance}>
+                      <defs>
+                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                          <stop offset="5%" stopColor="#C084FC" stopOpacity={0.8} />
+                          <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
+                        </linearGradient>
+                      </defs>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                      <XAxis dataKey="hour" stroke="#9AA1B9" />
+                      <YAxis stroke="#9AA1B9" />
+                      <Tooltip />
+                      <Area
+                        type="monotone"
+                        dataKey="revenue"
+                        stroke="#8B5CF6"
+                        fillOpacity={1}
+                        fill="url(#revenueGradient)"
+                        name="Revenue"
+                      />
+                    </AreaChart>
+                  </ResponsiveContainer>
+                </div>
+
+                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                  <div className="flex items-center justify-between">
+                    <div>
+                      <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Hourly Metrics</p>
+                      <p className="text-lg font-semibold text-gray-900">Orders vs revenue</p>
+                    </div>
+                    <span className="text-xs text-gray-400">Local timezone</span>
+                  </div>
+                  <ResponsiveContainer width="100%" height={280} className="mt-6">
+                    <LineChart data={hourlyPerformance}>
+                      <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                      <XAxis dataKey="hour" stroke="#9AA1B9" />
+                      <YAxis stroke="#9AA1B9" />
+                      <Tooltip />
+                      <Legend />
+                      <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={3} dot={false} />
+                      <Line type="monotone" dataKey="revenue" stroke="#F97316" strokeWidth={3} dot={false} />
+                    </LineChart>
+                  </ResponsiveContainer>
+                </div>
+              </section>
+            )}
+
+            {/* Highlights Tab */}
+            {activeTab === 'highlights' && (
+              <section className="grid gap-6 lg:grid-cols-2">
+                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5 lg:col-span-2">
+                  <p className="text-lg font-semibold text-gray-900">Top Selling Highlight</p>
+                  <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.4em] text-gray-400">Best Seller</p>
+                      <p className="text-3xl font-semibold text-gray-900">{data.topItem.name}</p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {data.topItem.qty} units sold {summaryContextLabel}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] px-6 py-4 text-right">
+                      <p className="text-sm text-gray-600">Avg order value</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {averageOrderValue ? currencyFormatter.format(averageOrderValue) : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 rounded-3xl border border-gray-100 bg-white/70">
+                    {topItemDetails.length > 0 ? (
+                      <ul className="divide-y divide-gray-100">
+                        {topItemDetails.map((item, index) => (
+                          <li
+                            key={`${item.name}-${index}`}
+                            className="flex items-center justify-between gap-4 px-4 py-3 text-sm text-gray-600"
+                          >
+                            <div className="flex items-center gap-4">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
+                                {index + 1}
+                              </span>
+                              <div>
+                                <p className="font-semibold text-gray-900">{item.name}</p>
+                                <p className="text-xs text-gray-500">{item.qty.toLocaleString()} units</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-gray-900">
+                                {currencyFormatter.format(item.revenue)}
+                              </p>
+                              <p className="text-xs text-gray-500">Revenue</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-4 py-6 text-sm text-gray-500">
+                        No item-level sales recorded {summaryContextLabel}.
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-600">
+                    Seamlessly synced with Rista POS — every order, discount, and cash adjustment
+                    stays reconciled with your source of truth.
+                  </div>
+                </div>
+
+                <div className="grid gap-4 lg:col-span-2 lg:grid-cols-3">
+                  {highlightCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
+                        {card.label}
+                      </p>
+                      <p className="mt-3 text-3xl font-semibold">{card.value}</p>
+                      <p className="mt-1 text-sm">{card.helper}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>

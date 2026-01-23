@@ -15,26 +15,7 @@ const FEATURES = [
   },
 ];
 
-const DEMO_CREDENTIALS = [
-  {
-    role: 'Admin',
-    email: 'admin@waffleforever.com',
-    password: 'admin123',
-    icon: '👑',
-  },
-  {
-    role: 'Manager',
-    email: 'manager@waffleforever.com',
-    password: 'manager123',
-    icon: '🧇',
-  },
-  {
-    role: 'Staff',
-    email: 'staff@waffleforever.com',
-    password: 'staff123',
-    icon: '💼',
-  },
-];
+
 
 export default function Home() {
   return (
@@ -113,22 +94,7 @@ export default function Home() {
               Sign In
             </Link>
           </form>
-          <div className="mt-8 rounded-2xl bg-gray-100 p-5 text-sm text-gray-700">
-            <p className="font-semibold mb-4">Demo Credentials</p>
-            <ul className="space-y-3">
-              {DEMO_CREDENTIALS.map((demo) => (
-                <li key={demo.role} className="flex items-center justify-between gap-3">
-                  <span className="flex items-center gap-2 font-medium">
-                    <span>{demo.icon}</span>
-                    {demo.role}
-                  </span>
-                  <span className="text-xs text-gray-500">
-                    {demo.email} / {demo.password}
-                  </span>
-                </li>
-              ))}
-            </ul>
-          </div>
+
         </section>
       </div>
     </div>
