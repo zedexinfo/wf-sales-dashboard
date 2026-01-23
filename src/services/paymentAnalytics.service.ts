@@ -12,14 +12,34 @@ export function computePaymentAnalytics(sales: RistaSale[]): PaymentAnalytics {
   let cash = 0;
   let upi = 0;
   let card = 0;
+  let zomato = 0;
+  let swiggy = 0;
+  let other = 0;
 
   for (const sale of sales) {
+    // Check source platform
+    const source = (sale.sourceInfo?.source || "").toLowerCase();
+    const channel = (sale.channel || "").toLowerCase();
+    const isZomato = source.includes("zomato") || channel.includes("zomato");
+    const isSwiggy = source.includes("swiggy") || channel.includes("swiggy");
+    const isOnlineOrder = source && source !== "api" && source !== "callcenter" && !source.includes("dine");
+    
     // Iterate through payments array from Rista Sale model
     for (const payment of sale.payments || []) {
       const amount = payment.amount || 0;
       const paymentMode = (payment.mode || "").toLowerCase();
       const subMode = (payment.subMode || "").toLowerCase();
 
+      // Categorize by platform first if delivery exists
+      if (isZomato) {
+        zomato += amount;
+      } else if (isSwiggy) {
+        swiggy += amount;
+      } else if (isOnlineOrder) {
+        other += amount;
+      }
+
+      // Also categorize by payment type
       if (paymentMode === "cash" || paymentMode.includes("cash")) {
         cash += amount;
       } else if (
@@ -57,6 +77,9 @@ export function computePaymentAnalytics(sales: RistaSale[]): PaymentAnalytics {
     upi,
     card,
     cashInflow: cash, // Cash inflow is total cash payments
+    zomato,
+    swiggy,
+    other,
   };
 }
 
@@ -70,6 +93,9 @@ const ZERO_PAYMENT_ANALYTICS: PaymentAnalytics = {
   upi: 0,
   card: 0,
   cashInflow: 0,
+  zomato: 0,
+  swiggy: 0,
+  other: 0,
 };
 
 function categorizeSummaryPayment(mode?: string) {
@@ -126,5 +152,8 @@ export function computePaymentAnalyticsFromSummary(
     upi,
     card,
     cashInflow: cash,
+    zomato: 0,
+    swiggy: 0,
+    other: 0,
   };
 }

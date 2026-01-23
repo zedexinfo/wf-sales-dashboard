@@ -29,7 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 
-const PAYMENT_COLORS = ['#7C3AED', '#34D399', '#F97316'];
+const PAYMENT_COLORS = ['#7C3AED', '#34D399', '#F97316', '#EC4899', '#10B981', '#6366F1'];
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -172,6 +172,7 @@ export default function DashboardPage() {
     end: date,
   }));
   const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'highlights'>('overview');
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -292,7 +293,10 @@ export default function DashboardPage() {
     { name: 'Cash', value: data?.payments.cash || 0 },
     { name: 'UPI', value: data?.payments.upi || 0 },
     { name: 'Card', value: data?.payments.card || 0 },
-  ];
+    ...(data?.payments.zomato ? [{ name: 'Zomato', value: data.payments.zomato }] : []),
+    ...(data?.payments.swiggy ? [{ name: 'Swiggy', value: data.payments.swiggy }] : []),
+    ...(data?.payments.other ? [{ name: 'Other Platforms', value: data.payments.other }] : []),
+  ].filter(p => p.value > 0);
 
   const peakHour = hourlyPerformance.reduce(
     (acc, point) => (point.orders > acc.orders ? point : acc),
@@ -441,7 +445,28 @@ export default function DashboardPage() {
 
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10">
         <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr,1fr,2fr,auto]">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+            <button
+              onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-2"
+            >
+              {filtersCollapsed ? (
+                <>
+                  <span>Show Filters</span>
+                  <span className="transform rotate-180 transition-transform">▼</span>
+                </>
+              ) : (
+                <>
+                  <span>Hide Filters</span>
+                  <span className="transition-transform">▼</span>
+                </>
+              )}
+            </button>
+          </div>
+          
+          {!filtersCollapsed && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr,1fr,2fr,auto]">
             <div className="flex flex-col">
               <label htmlFor="branch" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Branch
@@ -565,6 +590,7 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+          )}
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
             <div>
@@ -577,8 +603,8 @@ export default function DashboardPage() {
             </div>
           </div>
 
-          {/* Tabs */}
-          <div className="mt-6 flex gap-2 border-b border-gray-200">
+          {/* Tabs - Centered */}
+          <div className="mt-6 flex justify-center gap-2 border-b border-gray-200">
             <button
               onClick={() => setActiveTab('overview')}
               className={`px-6 py-3 text-sm font-semibold transition-colors ${
@@ -630,7 +656,7 @@ export default function DashboardPage() {
             {/* Overview Tab */}
             {activeTab === 'overview' && (
               <>
-                <section className="grid gap-5 lg:grid-cols-4">
+                <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
                   {summaryCards.map((card) => (
                     <div
                       key={card.label}
@@ -710,70 +736,132 @@ export default function DashboardPage() {
 
             {/* Metrics Tab */}
             {activeTab === 'metrics' && (
-              <section className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Revenue Trend</p>
-                      <p className="text-lg font-semibold text-gray-900">Hourly sales momentum</p>
+              <>
+                <section className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Revenue Trend</p>
+                        <p className="text-lg font-semibold text-gray-900">Hourly sales momentum</p>
+                      </div>
+                      <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
+                        {period}
+                      </span>
                     </div>
-                    <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
-                      {period}
-                    </span>
+                    <ResponsiveContainer width="100%" height={280} className="mt-6">
+                      <AreaChart data={hourlyPerformance}>
+                        <defs>
+                          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#C084FC" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                        <XAxis dataKey="hour" stroke="#9AA1B9" />
+                        <YAxis stroke="#9AA1B9" />
+                        <Tooltip />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#8B5CF6"
+                          fillOpacity={1}
+                          fill="url(#revenueGradient)"
+                          name="Revenue"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
                   </div>
-                  <ResponsiveContainer width="100%" height={280} className="mt-6">
-                    <AreaChart data={hourlyPerformance}>
-                      <defs>
-                        <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                          <stop offset="5%" stopColor="#C084FC" stopOpacity={0.8} />
-                          <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
-                        </linearGradient>
-                      </defs>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                      <XAxis dataKey="hour" stroke="#9AA1B9" />
-                      <YAxis stroke="#9AA1B9" />
-                      <Tooltip />
-                      <Area
-                        type="monotone"
-                        dataKey="revenue"
-                        stroke="#8B5CF6"
-                        fillOpacity={1}
-                        fill="url(#revenueGradient)"
-                        name="Revenue"
-                      />
-                    </AreaChart>
-                  </ResponsiveContainer>
-                </div>
 
-                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                  <div className="flex items-center justify-between">
-                    <div>
-                      <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Hourly Metrics</p>
-                      <p className="text-lg font-semibold text-gray-900">Orders vs revenue</p>
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Hourly Metrics</p>
+                        <p className="text-lg font-semibold text-gray-900">Orders vs revenue</p>
+                      </div>
+                      <span className="text-xs text-gray-400">Local timezone</span>
                     </div>
-                    <span className="text-xs text-gray-400">Local timezone</span>
+                    <ResponsiveContainer width="100%" height={280} className="mt-6">
+                      <LineChart data={hourlyPerformance}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                        <XAxis dataKey="hour" stroke="#9AA1B9" />
+                        <YAxis stroke="#9AA1B9" />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={3} dot={false} />
+                        <Line type="monotone" dataKey="revenue" stroke="#F97316" strokeWidth={3} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
                   </div>
-                  <ResponsiveContainer width="100%" height={280} className="mt-6">
-                    <LineChart data={hourlyPerformance}>
-                      <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                      <XAxis dataKey="hour" stroke="#9AA1B9" />
-                      <YAxis stroke="#9AA1B9" />
-                      <Tooltip />
-                      <Legend />
-                      <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={3} dot={false} />
-                      <Line type="monotone" dataKey="revenue" stroke="#F97316" strokeWidth={3} dot={false} />
-                    </LineChart>
-                  </ResponsiveContainer>
-                </div>
-              </section>
+                </section>
+
+                {/* Additional Metrics */}
+                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Transaction Rate
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {data?.summary.totalOrders || 0}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">Total transactions {summaryContextLabel}</p>
+                  </div>
+                  
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-green-50 to-emerald-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Revenue Per Order
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {averageOrderValue ? currencyFormatter.format(averageOrderValue) : '—'}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">Average order value</p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-purple-50 to-pink-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Tax Revenue
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {currencyFormatter.format(data?.summary.totalTax || 0)}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">GST collected {summaryContextLabel}</p>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-orange-50 to-red-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Discounts Given
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {currencyFormatter.format(data?.summary.totalDiscount || 0)}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">Total discounts {summaryContextLabel}</p>
+                  </div>
+                </section>
+              </>
             )}
 
-            {/* Highlights Tab */}
+            {/* Highlights Tab - Side by side layout on tablets+ */}
             {activeTab === 'highlights' && (
-              <section className="grid gap-6 lg:grid-cols-2">
-                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5 lg:col-span-2">
+              <section className="grid gap-6 md:grid-cols-2">
+                {/* Highlight Cards - Left side on tablets+ */}
+                <div className="grid gap-4 md:grid-rows-3">
+                  {highlightCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
+                        {card.label}
+                      </p>
+                      <p className="mt-3 text-3xl font-semibold">{card.value}</p>
+                      <p className="mt-1 text-sm">{card.helper}</p>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Top Selling Highlight - Right side on tablets+ */}
+                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
                   <p className="text-lg font-semibold text-gray-900">Top Selling Highlight</p>
-                  <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                  <div className="mt-4 flex flex-col gap-4">
                     <div>
                       <p className="text-sm uppercase tracking-[0.4em] text-gray-400">Best Seller</p>
                       <p className="text-3xl font-semibold text-gray-900">{data.topItem.name}</p>
@@ -781,14 +869,14 @@ export default function DashboardPage() {
                         {data.topItem.qty} units sold {summaryContextLabel}
                       </p>
                     </div>
-                    <div className="rounded-2xl bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] px-6 py-4 text-right">
+                    <div className="rounded-2xl bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] px-6 py-4">
                       <p className="text-sm text-gray-600">Avg order value</p>
                       <p className="text-2xl font-semibold text-gray-900">
                         {averageOrderValue ? currencyFormatter.format(averageOrderValue) : '—'}
                       </p>
                     </div>
                   </div>
-                  <div className="mt-6 rounded-3xl border border-gray-100 bg-white/70">
+                  <div className="mt-6 rounded-3xl border border-gray-100 bg-white/70 max-h-96 overflow-y-auto">
                     {topItemDetails.length > 0 ? (
                       <ul className="divide-y divide-gray-100">
                         {topItemDetails.map((item, index) => (
@@ -824,21 +912,6 @@ export default function DashboardPage() {
                     Seamlessly synced with Rista POS — every order, discount, and cash adjustment
                     stays reconciled with your source of truth.
                   </div>
-                </div>
-
-                <div className="grid gap-4 lg:col-span-2 lg:grid-cols-3">
-                  {highlightCards.map((card) => (
-                    <div
-                      key={card.label}
-                      className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
-                        {card.label}
-                      </p>
-                      <p className="mt-3 text-3xl font-semibold">{card.value}</p>
-                      <p className="mt-1 text-sm">{card.helper}</p>
-                    </div>
-                  ))}
                 </div>
               </section>
             )}

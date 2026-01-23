@@ -34,6 +34,9 @@ const ZERO_PAYMENTS: PaymentAnalytics = {
   card: 0,
   upi: 0,
   cashInflow: 0,
+  zomato: 0,
+  swiggy: 0,
+  other: 0,
 };
 
 const MAX_RANGE_DAYS = 366;

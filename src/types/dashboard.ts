@@ -12,6 +12,9 @@ export interface PaymentAnalytics {
   upi: number;
   card: number;
   cashInflow: number;
+  zomato?: number;
+  swiggy?: number;
+  other?: number;
 }
 
 export interface TopItem {
