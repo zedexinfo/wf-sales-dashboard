@@ -3,8 +3,8 @@ import { MongoClient, Db } from 'mongodb';
 const uri = process.env.MONGODB_URI;
 const options = {};
 
-let client: MongoClient;
-let clientPromise: Promise<MongoClient>;
+let client: MongoClient | undefined;
+let clientPromise: Promise<MongoClient> | undefined;
 
 if (uri) {
   if (process.env.NODE_ENV === 'development') {
@@ -28,12 +28,12 @@ if (uri) {
 
 // Export a module-scoped MongoClient promise. By doing this in a
 // separate module, the client can be shared across functions.
-export default clientPromise!;
+export default clientPromise;
 
 export async function getDatabase(): Promise<Db> {
-  if (!uri) {
+  if (!uri || !clientPromise) {
     throw new Error('Invalid/Missing environment variable: "MONGODB_URI"');
   }
-  const client = await clientPromise;
-  return client.db(process.env.MONGODB_DB || 'wf-sales-dashboard');
+  const connectedClient = await clientPromise;
+  return connectedClient.db(process.env.MONGODB_DB || 'wf-sales-dashboard');
 }

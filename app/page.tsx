@@ -76,7 +76,7 @@ export default function Home() {
           }
         }
       }
-    } catch (error) {
+    } catch {
       setError('An unexpected error occurred');
     } finally {
       setLoading(false);
