@@ -9,6 +9,8 @@ import {
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import type { DashboardPeriod } from '@/src/types/dashboard';
 import { useEffect, useMemo, useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   Area,
   AreaChart,
@@ -158,6 +160,8 @@ function formatFriendlyPeriodLabel(
 }
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const { branch, date, data, branches, branchesLoading, loading, error } = useAppSelector(
     (state) => state.dashboard
@@ -168,6 +172,12 @@ export default function DashboardPage() {
     end: date,
   }));
   const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'highlights'>('overview');
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+    }
+  }, [status, router]);
 
   const isCustomRangeValid = useMemo(() => {
     if (!customRange.start || !customRange.end) {
@@ -380,6 +390,25 @@ export default function DashboardPage() {
     [data]
   );
 
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
+  };
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f6fb]">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600"></div>
+          <p className="font-medium text-gray-700">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f6fb] text-gray-900">
       <header className="bg-[#0f1020] text-white shadow-lg shadow-black/30">
@@ -394,11 +423,17 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <div className="hidden items-center gap-2 rounded-full bg-white/10 px-4 py-2 md:flex">
+              <span className="text-sm text-white/80">
+                {session?.user?.name || session?.user?.email}
+              </span>
+            </div>
             <button
               type="button"
-              className="hidden rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:text-white md:inline-flex"
+              onClick={handleLogout}
+              className="rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
             >
-              Export Data
+              Sign Out
             </button>
           </div>
         </div>
