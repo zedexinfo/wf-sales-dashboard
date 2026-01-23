@@ -173,6 +173,7 @@ export default function DashboardPage() {
   }));
   const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'highlights'>('overview');
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [useLocalTime, setUseLocalTime] = useState(true);
 
   useEffect(() => {
     if (status === 'unauthenticated') {
@@ -295,6 +296,25 @@ export default function DashboardPage() {
     { name: 'Card', value: data?.payments.card || 0 },
     ...(data?.payments.zomato ? [{ name: 'Zomato', value: data.payments.zomato }] : []),
     ...(data?.payments.swiggy ? [{ name: 'Swiggy', value: data.payments.swiggy }] : []),
+    ...(data?.payments.other ? [{ name: 'Other Platforms', value: data.payments.other }] : []),
+  ].filter(p => p.value > 0);
+
+  // Payment type data (Cash, UPI, Card)
+  const paymentTypeData = [
+    { name: 'Cash', value: data?.payments.cash || 0 },
+    { name: 'UPI', value: data?.payments.upi || 0 },
+    { name: 'Card', value: data?.payments.card || 0 },
+  ].filter(p => p.value > 0);
+
+  // Payment platform data (Zomato, Swiggy, Dine-in, Other)
+  const totalPlatformPayments = (data?.payments.zomato || 0) + (data?.payments.swiggy || 0) + (data?.payments.other || 0);
+  const totalPayments = (data?.payments.cash || 0) + (data?.payments.upi || 0) + (data?.payments.card || 0);
+  const dineInPayments = totalPayments - totalPlatformPayments;
+  
+  const paymentPlatformData = [
+    ...(data?.payments.zomato ? [{ name: 'Zomato', value: data.payments.zomato }] : []),
+    ...(data?.payments.swiggy ? [{ name: 'Swiggy', value: data.payments.swiggy }] : []),
+    ...(dineInPayments > 0 ? [{ name: 'Dine-in', value: dineInPayments }] : []),
     ...(data?.payments.other ? [{ name: 'Other Platforms', value: data.payments.other }] : []),
   ].filter(p => p.value > 0);
 
@@ -427,6 +447,14 @@ export default function DashboardPage() {
             </div>
           </div>
           <div className="flex items-center gap-4">
+            <button
+              type="button"
+              onClick={() => setUseLocalTime(!useLocalTime)}
+              className="hidden rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white md:inline-flex items-center gap-2"
+            >
+              <span>🕐</span>
+              <span>{useLocalTime ? 'Local Time' : 'UTC Time'}</span>
+            </button>
             <div className="hidden items-center gap-2 rounded-full bg-white/10 px-4 py-2 md:flex">
               <span className="text-sm text-white/80">
                 {session?.user?.name || session?.user?.email}
@@ -731,6 +759,52 @@ export default function DashboardPage() {
                     </div>
                   </div>
                 </section>
+
+                {/* Platform Split Section */}
+                {paymentPlatformData.length > 0 && (
+                  <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Platform Breakdown</p>
+                      <span className="text-xs text-gray-400">Order source split</span>
+                    </div>
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={paymentPlatformData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {paymentPlatformData.map((entry, index) => (
+                              <Cell key={`cell-platform-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ul className="flex-1 space-y-3 text-sm text-gray-600">
+                        {paymentPlatformData.map((entry, index) => (
+                          <li key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length] }}
+                              ></span>
+                              {entry.name}
+                            </div>
+                            <span className="font-semibold text-gray-900">
+                              {currencyFormatter.format(entry.value)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                )}
               </>
             )}
 
@@ -836,29 +910,110 @@ export default function DashboardPage() {
                     <p className="mt-2 text-sm text-gray-600">Total discounts {summaryContextLabel}</p>
                   </div>
                 </section>
+
+                {/* Payment Charts Section */}
+                <section className="grid gap-6 lg:grid-cols-2">
+                  {/* Payment Type Chart */}
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Payment Types</p>
+                      <span className="text-xs text-gray-400">Cash | UPI | Card</span>
+                    </div>
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={paymentTypeData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {paymentTypeData.map((entry, index) => (
+                              <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index % PAYMENT_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ul className="flex-1 space-y-3 text-sm text-gray-600">
+                        {paymentTypeData.map((entry, index) => (
+                          <li key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: PAYMENT_COLORS[index % PAYMENT_COLORS.length] }}
+                              ></span>
+                              {entry.name}
+                            </div>
+                            <span className="font-semibold text-gray-900">
+                              {currencyFormatter.format(entry.value)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Payment Platform Chart */}
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Payment Platforms</p>
+                      <span className="text-xs text-gray-400">Order sources</span>
+                    </div>
+                    {paymentPlatformData.length > 0 ? (
+                      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart>
+                            <Pie
+                              data={paymentPlatformData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={90}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {paymentPlatformData.map((entry, index) => (
+                                <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <ul className="flex-1 space-y-3 text-sm text-gray-600">
+                          {paymentPlatformData.map((entry, index) => (
+                            <li key={entry.name} className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className="h-3 w-3 rounded-full"
+                                  style={{ backgroundColor: PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length] }}
+                                ></span>
+                                {entry.name}
+                              </div>
+                              <span className="font-semibold text-gray-900">
+                                {currencyFormatter.format(entry.value)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className="flex h-[220px] items-center justify-center text-gray-500">
+                        <p className="text-sm">No platform data available</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
               </>
             )}
 
             {/* Highlights Tab - Side by side layout on tablets+ */}
             {activeTab === 'highlights' && (
-              <section className="grid gap-6 md:grid-cols-2">
-                {/* Highlight Cards - Left side on tablets+ */}
-                <div className="grid gap-4 md:grid-rows-3">
-                  {highlightCards.map((card) => (
-                    <div
-                      key={card.label}
-                      className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
-                    >
-                      <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
-                        {card.label}
-                      </p>
-                      <p className="mt-3 text-3xl font-semibold">{card.value}</p>
-                      <p className="mt-1 text-sm">{card.helper}</p>
-                    </div>
-                  ))}
-                </div>
-
-                {/* Top Selling Highlight - Right side on tablets+ */}
+              <section className="grid gap-6 md:grid-cols-[65fr,35fr]">
+                {/* Top Selling Highlight - Left side (65%) on tablets+ */}
                 <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
                   <p className="text-lg font-semibold text-gray-900">Top Selling Highlight</p>
                   <div className="mt-4 flex flex-col gap-4">
@@ -912,6 +1067,22 @@ export default function DashboardPage() {
                     Seamlessly synced with Rista POS — every order, discount, and cash adjustment
                     stays reconciled with your source of truth.
                   </div>
+                </div>
+
+                {/* Highlight Cards - Right side (35%) on tablets+ */}
+                <div className="grid gap-4 md:grid-rows-3">
+                  {highlightCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
+                        {card.label}
+                      </p>
+                      <p className="mt-3 text-3xl font-semibold">{card.value}</p>
+                      <p className="mt-1 text-sm">{card.helper}</p>
+                    </div>
+                  ))}
                 </div>
               </section>
             )}
