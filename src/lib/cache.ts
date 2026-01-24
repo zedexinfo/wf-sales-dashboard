@@ -89,12 +89,10 @@ export async function withCache<T>(
   // Check cache first
   const cached = apiCache.get<T>(key);
   if (cached !== null) {
-    console.log(`Cache hit for key: ${key}`);
     return cached;
   }
 
   // Fetch fresh data
-  console.log(`Cache miss for key: ${key}`);
   const data = await fetchFn();
   
   // Store in cache

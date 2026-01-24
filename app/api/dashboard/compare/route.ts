@@ -74,9 +74,7 @@ async function fetchBranchData(
   branch: string,
   dateRange: string[]
 ): Promise<DashboardData> {
-  const cacheKey = apiCache.constructor.name === 'InMemoryCache' 
-    ? `branch:${branch}:dates:${dateRange.join(',')}` 
-    : '';
+  const cacheKey = `branch:${branch}:dates:${dateRange.join(',')}`;
 
   return withCache(cacheKey, async () => {
     const aggregatedSummary: SalesSummary = { ...ZERO_SUMMARY };

@@ -170,6 +170,8 @@ function formatFriendlyPeriodLabel(
   });
 }
 
+const MILLISECONDS_PER_DAY = 1000 * 60 * 60 * 24;
+
 export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
@@ -229,7 +231,7 @@ export default function DashboardPage() {
     // Check if range is within 1-7 days
     const start = new Date(comparisonRange.start);
     const end = new Date(comparisonRange.end);
-    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / MILLISECONDS_PER_DAY);
     return comparisonRange.start <= comparisonRange.end && daysDiff >= 0 && daysDiff <= 6;
   }, [comparisonRange.start, comparisonRange.end]);
 

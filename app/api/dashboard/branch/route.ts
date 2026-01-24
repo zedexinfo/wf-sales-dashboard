@@ -269,9 +269,7 @@ export async function GET(request: NextRequest) {
 
   try {
     // Generate cache key for this request
-    const cacheKey = apiCache.constructor.name === 'InMemoryCache'
-      ? `dashboard:${branch}:${period}:${dateRange.join(',')}` 
-      : '';
+    const cacheKey = `dashboard:${branch}:${period}:${dateRange.join(',')}`;
 
     const dashboardData = await withCache(cacheKey, async () => {
       const aggregatedSummary: SalesSummary = { ...ZERO_SUMMARY };
