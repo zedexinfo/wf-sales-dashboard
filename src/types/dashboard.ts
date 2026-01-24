@@ -8,8 +8,13 @@ export interface SalesSummary {
 }
 
 export interface PaymentAnalytics {
-  // Dynamic payment modes - can include Cash, UPI, Card, Zomato, Swiggy, DotPe, etc.
+  // Dynamic payment modes - can include Cash, UPI, Card, etc.
   [mode: string]: number;
+}
+
+export interface ChannelAnalytics {
+  // Dynamic channels - can include Dine-in, Takeaway, Zomato, Swiggy, DotPe, Magicpin, etc.
+  [channel: string]: number;
 }
 
 export interface TopItem {
@@ -30,6 +35,7 @@ export interface Branch {
 export interface DashboardData {
   summary: SalesSummary;
   payments: PaymentAnalytics;
+  channels: ChannelAnalytics;
   ordersByHour: number[];
   ordersByWeekday: number[];
   topItem: TopItem;
