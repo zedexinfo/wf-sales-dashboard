@@ -307,9 +307,7 @@ export default function DashboardPage() {
   ].filter(p => p.value > 0);
 
   // Payment platform data (Zomato, Swiggy, Dine-in, Other)
-  const totalPlatformPayments = (data?.payments.zomato || 0) + (data?.payments.swiggy || 0) + (data?.payments.other || 0);
-  const totalPayments = (data?.payments.cash || 0) + (data?.payments.upi || 0) + (data?.payments.card || 0);
-  const dineInPayments = totalPayments - totalPlatformPayments;
+  const dineInPayments = (data?.payments.cash || 0) + (data?.payments.upi || 0) + (data?.payments.card || 0);
   
   const paymentPlatformData = [
     ...(data?.payments.zomato ? [{ name: 'Zomato', value: data.payments.zomato }] : []),
