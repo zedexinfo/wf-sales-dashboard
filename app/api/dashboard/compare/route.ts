@@ -173,10 +173,12 @@ export async function GET(request: NextRequest) {
   const dateRange = enumerateRange(rangeStart, rangeEnd);
 
   // Enforce date range limit (1 day to 1 week)
-  if (dateRange.length > MAX_COMPARISON_DAYS) {
+  if (dateRange.length === 0 || dateRange.length > MAX_COMPARISON_DAYS) {
     return NextResponse.json(
       {
-        error: `Comparison range limited to ${MAX_COMPARISON_DAYS} days. Selected range spans ${dateRange.length} days.`
+        error: dateRange.length === 0
+          ? "Invalid date range. Please select at least one day."
+          : `Comparison range limited to ${MAX_COMPARISON_DAYS} days. Selected range spans ${dateRange.length} days.`
       },
       { status: 400 }
     );

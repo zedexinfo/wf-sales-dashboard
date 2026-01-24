@@ -308,6 +308,9 @@ export default function DashboardPage() {
   };
 
   const handleSelectAllBranches = () => {
+    if (!branches || branches.length === 0) {
+      return;
+    }
     if (selectedBranches.length === branches.length) {
       dispatch(setSelectedBranches([]));
     } else {
