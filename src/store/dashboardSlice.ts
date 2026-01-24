@@ -107,7 +107,7 @@ export const fetchBranchComparison = createAsyncThunk(
     const data = await response.json();
     
     // Map branch IDs to names
-    const comparison: BranchComparisonData[] = data.comparison.map((item: any) => ({
+    const comparison: BranchComparisonData[] = data.comparison.map((item: { branchId: string; data: DashboardData }) => ({
       branchId: item.branchId,
       branchName: branchNames[item.branchId] || item.branchId,
       data: item.data,

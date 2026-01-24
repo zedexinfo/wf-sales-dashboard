@@ -3,6 +3,7 @@ import {
   computeOrdersByWeekday,
   computeTopItems,
 } from "@/src/services/itemAnalytics.service";
+import type { Sale } from "@/src/services/salesPage.service";
 import { getAllSales } from "@/src/services/salesPage.service";
 import { getSalesSummary } from "@/src/services/salesSummary.service";
 import { 
@@ -79,7 +80,7 @@ async function fetchBranchData(
 
   return withCache(cacheKey, async () => {
     const aggregatedSummary: SalesSummary = { ...ZERO_SUMMARY };
-    const aggregatedSales: any[] = [];
+    const aggregatedSales: Sale[] = [];
 
     // Fetch data for each date in the range
     for (const day of dateRange) {

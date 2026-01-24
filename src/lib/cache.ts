@@ -9,7 +9,7 @@ interface CacheEntry<T> {
 }
 
 class InMemoryCache {
-  private cache: Map<string, CacheEntry<any>> = new Map();
+  private cache: Map<string, CacheEntry<unknown>> = new Map();
   private defaultTTL: number = 5 * 60 * 1000; // 5 minutes in milliseconds
 
   /**
@@ -67,7 +67,7 @@ class InMemoryCache {
   /**
    * Generate cache key from parameters
    */
-  static generateKey(prefix: string, params: Record<string, any>): string {
+  static generateKey(prefix: string, params: Record<string, string | number | boolean>): string {
     const sortedParams = Object.keys(params)
       .sort()
       .map(key => `${key}:${params[key]}`)
