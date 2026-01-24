@@ -19,11 +19,7 @@ export function computePaymentAnalytics(sales: RistaSale[]): PaymentAnalytics {
       const paymentMode = payment.mode || "Unknown";
 
       // Accumulate by payment mode
-      if (paymentModes[paymentMode]) {
-        paymentModes[paymentMode] += amount;
-      } else {
-        paymentModes[paymentMode] = amount;
-      }
+      paymentModes[paymentMode] = (paymentModes[paymentMode] || 0) + amount;
     }
   }
 
@@ -43,11 +39,7 @@ export function computeChannelAnalytics(sales: RistaSale[]): ChannelAnalytics {
     const amount = sale.billRoundedAmount || sale.totalAmount || 0;
 
     // Accumulate by channel
-    if (channels[channel]) {
-      channels[channel] += amount;
-    } else {
-      channels[channel] = amount;
-    }
+    channels[channel] = (channels[channel] || 0) + amount;
   }
 
   return channels;

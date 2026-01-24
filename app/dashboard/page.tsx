@@ -7,7 +7,7 @@ import {
   setDate,
 } from '@/src/store/dashboardSlice';
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
-import type { DashboardPeriod } from '@/src/types/dashboard';
+import type { DashboardPeriod, PaymentAnalytics } from '@/src/types/dashboard';
 import { useEffect, useMemo, useState } from 'react';
 import { useSession, signOut } from 'next-auth/react';
 import { useRouter } from 'next/navigation';
@@ -308,6 +308,12 @@ export default function DashboardPage() {
       .sort((a, b) => b.value - a.value); // Sort by value descending
   }, [data]);
 
+  // Helper to get cash amount (case-insensitive)
+  const getCashAmount = (payments: PaymentAnalytics | undefined): number => {
+    if (!payments) return 0;
+    return payments.Cash || payments.cash || 0;
+  };
+
   const peakHour = hourlyPerformance.reduce(
     (acc, point) => (point.orders > acc.orders ? point : acc),
     { hour: '—', orders: 0, revenue: 0 }
@@ -358,7 +364,7 @@ export default function DashboardPage() {
         },
         {
           label: 'Cash Inflow',
-          value: currencyFormatter.format(data.payments.Cash || data.payments.cash || 0),
+          value: currencyFormatter.format(getCashAmount(data.payments)),
           helper: `Physical tender ${summaryContextLabel}`,
         },
         {
@@ -386,14 +392,14 @@ export default function DashboardPage() {
         {
           label: 'Cash Share',
           value: `${Math.round(
-            ((data.payments.Cash || data.payments.cash || 0) /
+            (getCashAmount(data.payments) /
               Math.max(
                 Object.values(data.payments).reduce((sum, val) => sum + val, 0),
                 1
               )) *
               100
           )}%`,
-          helper: `${currencyFormatter.format(data.payments.Cash || data.payments.cash || 0)} collected ${summaryContextLabel}`,
+          helper: `${currencyFormatter.format(getCashAmount(data.payments))} collected ${summaryContextLabel}`,
           gradient: 'from-[#FBC2EB] to-[#A18CD1] text-[#3F1E5B]',
         },
       ]
