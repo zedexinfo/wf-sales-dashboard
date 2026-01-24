@@ -63,17 +63,6 @@ class InMemoryCache {
   size(): number {
     return this.cache.size;
   }
-
-  /**
-   * Generate cache key from parameters
-   */
-  static generateKey(prefix: string, params: Record<string, string | number | boolean>): string {
-    const sortedParams = Object.keys(params)
-      .sort()
-      .map(key => `${key}:${params[key]}`)
-      .join('|');
-    return `${prefix}:${sortedParams}`;
-  }
 }
 
 // Export singleton instance

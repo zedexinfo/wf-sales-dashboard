@@ -228,11 +228,14 @@ export default function DashboardPage() {
     if (!comparisonRange.start || !comparisonRange.end) {
       return false;
     }
-    // Check if range is within 1-7 days
+    // Check if range is within 1-7 days (inclusive)
     const start = new Date(comparisonRange.start);
     const end = new Date(comparisonRange.end);
     const daysDiff = Math.ceil((end.getTime() - start.getTime()) / MILLISECONDS_PER_DAY);
-    return comparisonRange.start <= comparisonRange.end && daysDiff >= 0 && daysDiff <= 6;
+    // daysDiff represents the difference, add 1 for inclusive count
+    // e.g., Jan 1 to Jan 1 = 0 diff = 1 day, Jan 1 to Jan 7 = 6 diff = 7 days
+    const daysInRange = daysDiff + 1;
+    return comparisonRange.start <= comparisonRange.end && daysInRange >= 1 && daysInRange <= 7;
   }, [comparisonRange.start, comparisonRange.end]);
 
   const monthValue = useMemo(() => date.slice(0, 7), [date]);
@@ -319,7 +322,7 @@ export default function DashboardPage() {
   };
 
   const handleCompareNow = () => {
-    if (selectedBranches.length === 0 || !isComparisonRangeValid) {
+    if (selectedBranches.length === 0 || !isComparisonRangeValid || !branches || branches.length === 0) {
       return;
     }
 
