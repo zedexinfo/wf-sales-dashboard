@@ -653,31 +653,35 @@ export default function DashboardPage() {
                     onClick={handleSelectAllBranches}
                     className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
                   >
-                    {selectedBranches.length === branches.length ? "Deselect All" : "Select All"}
+                    {(selectedBranches.length === (branches?.length || 0)) ? "Deselect All" : "Select All"}
                   </button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
-                  {branches.map((b) => (
-                    <label
-                      key={b.id}
-                      className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 cursor-pointer transition ${
-                        selectedBranches.includes(b.id)
-                          ? "border-indigo-500 bg-indigo-50"
-                          : "border-gray-200 bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      <input
-                        type="checkbox"
-                        checked={selectedBranches.includes(b.id)}
-                        onChange={() => handleBranchSelectionToggle(b.id)}
-                        disabled={comparisonLoading}
-                        className="h-4 w-4 text-indigo-600 rounded"
-                      />
-                      <span className="text-sm font-medium text-gray-900">
-                        {b.name}
-                      </span>
-                    </label>
-                  ))}
+                  {branches && branches.length > 0 ? (
+                    branches.map((b) => (
+                      <label
+                        key={b.id}
+                        className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 cursor-pointer transition ${
+                          selectedBranches.includes(b.id)
+                            ? "border-indigo-500 bg-indigo-50"
+                            : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={selectedBranches.includes(b.id)}
+                          onChange={() => handleBranchSelectionToggle(b.id)}
+                          disabled={comparisonLoading}
+                          className="h-4 w-4 text-indigo-600 rounded"
+                        />
+                        <span className="text-sm font-medium text-gray-900">
+                          {b.name}
+                        </span>
+                      </label>
+                    ))
+                  ) : (
+                    <p className="col-span-full text-sm text-gray-500">No branches available</p>
+                  )}
                 </div>
               </div>
 
