@@ -1,0 +1,31 @@
+import { getBusiness } from "../api/business/business";
+import type { Branch as RistaBranch } from "../api/ristaPlatformAPI.schemas";
+
+const businessAPI = getBusiness();
+
+export interface Branch {
+  id: string;
+  name: string;
+  location?: string;
+}
+
+/**
+ * Fetch all branches from Rista API
+ * Endpoint: GET /branch/list
+ */
+export async function getBranches(): Promise<Branch[]> {
+  try {
+    const response = await businessAPI.getBranchList();
+    // Map Rista Branch model to our dashboard Branch interface
+    return (response.data || []).map((ristaBranch: RistaBranch) => ({
+      id: ristaBranch.branchCode,
+      name: ristaBranch.branchName,
+      location:
+        ristaBranch.address?.city || ristaBranch.address?.state || undefined,
+    }));
+  } catch (error) {
+    console.error("Error fetching branches:", error);
+    // Return empty array on error
+    return [];
+  }
+}
