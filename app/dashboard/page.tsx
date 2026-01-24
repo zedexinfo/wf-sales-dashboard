@@ -9,6 +9,8 @@ import {
 import { useAppDispatch, useAppSelector } from '@/src/store/hooks';
 import type { DashboardPeriod } from '@/src/types/dashboard';
 import { useEffect, useMemo, useState } from 'react';
+import { useSession, signOut } from 'next-auth/react';
+import { useRouter } from 'next/navigation';
 import {
   Area,
   AreaChart,
@@ -27,7 +29,7 @@ import {
   YAxis,
 } from 'recharts';
 
-const PAYMENT_COLORS = ['#7C3AED', '#34D399', '#F97316'];
+const PAYMENT_COLORS = ['#7C3AED', '#34D399', '#F97316', '#EC4899', '#10B981', '#6366F1'];
 
 const currencyFormatter = new Intl.NumberFormat('en-IN', {
   style: 'currency',
@@ -158,6 +160,8 @@ function formatFriendlyPeriodLabel(
 }
 
 export default function DashboardPage() {
+  const { data: session, status } = useSession();
+  const router = useRouter();
   const dispatch = useAppDispatch();
   const { branch, date, data, branches, branchesLoading, loading, error } = useAppSelector(
     (state) => state.dashboard
@@ -167,6 +171,15 @@ export default function DashboardPage() {
     start: date,
     end: date,
   }));
+  const [activeTab, setActiveTab] = useState<'overview' | 'metrics' | 'highlights'>('overview');
+  const [filtersCollapsed, setFiltersCollapsed] = useState(false);
+  const [useLocalTime, setUseLocalTime] = useState(true);
+
+  useEffect(() => {
+    if (status === 'unauthenticated') {
+      router.push('/');
+    }
+  }, [status, router]);
 
   const isCustomRangeValid = useMemo(() => {
     if (!customRange.start || !customRange.end) {
@@ -277,11 +290,46 @@ export default function DashboardPage() {
     [data?.ordersByWeekday]
   );
 
-  const paymentData = [
-    { name: 'Cash', value: data?.payments.cash || 0 },
-    { name: 'UPI', value: data?.payments.upi || 0 },
-    { name: 'Card', value: data?.payments.card || 0 },
-  ];
+  // Payment Methods - Show all payment modes dynamically
+  const paymentData = useMemo(() => {
+    if (!data?.payments) return [];
+    return Object.entries(data.payments)
+      .map(([name, value]) => ({ name, value }))
+      .filter(p => p.value > 0)
+      .sort((a, b) => b.value - a.value); // Sort by value descending
+  }, [data]);
+
+  // Payment type data (Cash, UPI, Card) - for Metrics tab
+  const paymentTypeData = useMemo(() => {
+    if (!data?.payments) return [];
+    const paymentTypes = ['Cash', 'UPI', 'Card', 'cash', 'upi', 'card'];
+    return Object.entries(data.payments)
+      .filter(([name]) => paymentTypes.includes(name))
+      .map(([name, value]) => ({ name, value }))
+      .filter(p => p.value > 0);
+  }, [data]);
+
+  // Platform data - for now same as payment data, but filtered for known platforms
+  const paymentPlatformData = useMemo(() => {
+    if (!data?.payments) return [];
+    // Known platforms from branch channels
+    const platforms = ['Zomato', 'Swiggy', 'DotPe', 'Magicpin', 'zomato', 'swiggy', 'dotpe', 'magicpin'];
+    const platformData = Object.entries(data.payments)
+      .filter(([name]) => platforms.some(p => name.toLowerCase().includes(p.toLowerCase())))
+      .map(([name, value]) => ({ name, value }))
+      .filter(p => p.value > 0);
+    
+    // Calculate dine-in from payment types (Cash, UPI, Card)
+    const dineInAmount = Object.entries(data.payments)
+      .filter(([name]) => ['Cash', 'UPI', 'Card', 'cash', 'upi', 'card'].includes(name))
+      .reduce((sum, [, value]) => sum + value, 0);
+    
+    if (dineInAmount > 0) {
+      platformData.push({ name: 'Dine-in', value: dineInAmount });
+    }
+    
+    return platformData.sort((a, b) => b.value - a.value);
+  }, [data]);
 
   const peakHour = hourlyPerformance.reduce(
     (acc, point) => (point.orders > acc.orders ? point : acc),
@@ -379,10 +427,29 @@ export default function DashboardPage() {
     [data]
   );
 
+  const handleLogout = async () => {
+    await signOut({ callbackUrl: '/' });
+  };
+
+  if (status === 'loading') {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-[#f5f6fb]">
+        <div className="text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-indigo-600"></div>
+          <p className="font-medium text-gray-700">Loading...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (status === 'unauthenticated') {
+    return null;
+  }
+
   return (
     <div className="min-h-screen bg-[#f5f6fb] text-gray-900">
       <header className="bg-[#0f1020] text-white shadow-lg shadow-black/30">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-4 px-6 py-5">
+        <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-4 py-5">
           <div className="flex items-center gap-4">
             <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-gradient-to-br from-[#A855F7] to-[#2563EB] text-2xl">
               🧇
@@ -395,26 +462,52 @@ export default function DashboardPage() {
           <div className="flex items-center gap-4">
             <button
               type="button"
-              className="hidden rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:text-white md:inline-flex"
+              onClick={() => setUseLocalTime(!useLocalTime)}
+              className="hidden rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white md:inline-flex items-center gap-2"
             >
-              Make a copy
+              <span>🕐</span>
+              <span>{useLocalTime ? 'Local Time' : 'UTC Time'}</span>
             </button>
-            <div className="flex items-center gap-3 rounded-full bg-white/10 px-4 py-2">
-              <div className="flex h-10 w-10 items-center justify-center rounded-full bg-white/20 font-semibold">
-                AU
-              </div>
-              <div>
-                <p className="text-sm font-semibold">Admin User</p>
-                <p className="text-xs text-white/70">admin@waffleforever.com</p>
-              </div>
+            <div className="hidden items-center gap-2 rounded-full bg-white/10 px-4 py-2 md:flex">
+              <span className="text-sm text-white/80">
+                {session?.user?.name || session?.user?.email}
+              </span>
             </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="rounded-full border border-white/30 px-4 py-2 text-sm font-medium text-white/80 transition hover:bg-white/10 hover:text-white"
+            >
+              Sign Out
+            </button>
           </div>
         </div>
       </header>
 
-      <main className="mx-auto max-w-6xl space-y-8 px-6 py-10">
+      <main className="mx-auto max-w-7xl space-y-8 px-4 py-10">
         <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-          <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr,1fr,2fr,auto]">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
+            <button
+              onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-2"
+            >
+              {filtersCollapsed ? (
+                <>
+                  <span>Show Filters</span>
+                  <span className="transform rotate-180 transition-transform">▼</span>
+                </>
+              ) : (
+                <>
+                  <span>Hide Filters</span>
+                  <span className="transition-transform">▼</span>
+                </>
+              )}
+            </button>
+          </div>
+          
+          {!filtersCollapsed && (
+            <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr,1fr,2fr,auto]">
             <div className="flex flex-col">
               <label htmlFor="branch" className="text-xs font-semibold uppercase tracking-wide text-gray-500">
                 Branch
@@ -423,7 +516,7 @@ export default function DashboardPage() {
                 id="branch"
                 value={branch}
                 onChange={handleBranchChange}
-                disabled={branchesLoading}
+                disabled={branchesLoading || loading}
                 className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
               >
                 {branchesLoading ? (
@@ -448,6 +541,7 @@ export default function DashboardPage() {
                 id="period"
                 value={period}
                 onChange={handlePeriodChange}
+                disabled={loading}
                 className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
               >
                 {PERIOD_OPTIONS.map((option) => (
@@ -474,6 +568,7 @@ export default function DashboardPage() {
                   type="date"
                   value={date}
                   onChange={handleDateChange}
+                  disabled={loading}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
@@ -483,6 +578,7 @@ export default function DashboardPage() {
                   type="month"
                   value={monthValue}
                   onChange={handleMonthChange}
+                  disabled={loading}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
@@ -494,6 +590,7 @@ export default function DashboardPage() {
                   max="2100"
                   value={yearValue}
                   onChange={handleYearChange}
+                  disabled={loading}
                   className="mt-2 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                 />
               )}
@@ -503,6 +600,7 @@ export default function DashboardPage() {
                     type="date"
                     value={customRange.start}
                     onChange={handleCustomRangeChange('start')}
+                    disabled={loading}
                     className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                     aria-label="Start date"
                   />
@@ -510,6 +608,7 @@ export default function DashboardPage() {
                     type="date"
                     value={customRange.end}
                     onChange={handleCustomRangeChange('end')}
+                    disabled={loading}
                     className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
                     aria-label="End date"
                   />
@@ -532,6 +631,7 @@ export default function DashboardPage() {
               </button>
             </div>
           </div>
+          )}
 
           <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
             <div>
@@ -542,6 +642,40 @@ export default function DashboardPage() {
               <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Branch</p>
               <p className="text-lg font-semibold text-gray-900">{selectedBranchName}</p>
             </div>
+          </div>
+
+          {/* Tabs - Centered */}
+          <div className="mt-6 flex justify-center gap-2 border-b border-gray-200">
+            <button
+              onClick={() => setActiveTab('overview')}
+              className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === 'overview'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Overview
+            </button>
+            <button
+              onClick={() => setActiveTab('metrics')}
+              className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === 'metrics'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Metrics
+            </button>
+            <button
+              onClick={() => setActiveTab('highlights')}
+              className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                activeTab === 'highlights'
+                  ? 'border-b-2 border-indigo-600 text-indigo-600'
+                  : 'text-gray-500 hover:text-gray-700'
+              }`}
+            >
+              Highlights
+            </button>
           </div>
         </section>
 
@@ -560,210 +694,411 @@ export default function DashboardPage() {
 
         {!loading && data && (
           <>
-            <section className="grid gap-5 lg:grid-cols-4">
-              {summaryCards.map((card) => (
-                <div
-                  key={card.label}
-                  className="rounded-3xl border border-white/70 bg-white/90 p-5 shadow-lg shadow-slate-900/5"
-                >
-                  <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
-                    {card.label}
-                  </p>
-                  <p className="mt-3 text-3xl font-semibold text-gray-900">{card.value}</p>
-                  <p className="mt-2 text-sm text-gray-500">{card.helper}</p>
-                </div>
-              ))}
-            </section>
+            {/* Overview Tab */}
+            {activeTab === 'overview' && (
+              <>
+                <section className="grid gap-5 sm:grid-cols-2 lg:grid-cols-4">
+                  {summaryCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className="rounded-3xl border border-white/70 bg-white/90 p-5 shadow-lg shadow-slate-900/5"
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        {card.label}
+                      </p>
+                      <p className="mt-3 text-3xl font-semibold text-gray-900">{card.value}</p>
+                      <p className="mt-2 text-sm text-gray-500">{card.helper}</p>
+                    </div>
+                  ))}
+                </section>
 
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Revenue Trend</p>
-                    <p className="text-lg font-semibold text-gray-900">Hourly sales momentum</p>
+                <section className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Weekly Performance</p>
+                      <span className="text-xs text-gray-400">Orders by weekday</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={260}>
+                      <BarChart data={weekdayData}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                        <XAxis dataKey="day" stroke="#9AA1B9" />
+                        <YAxis stroke="#9AA1B9" />
+                        <Tooltip />
+                        <Bar dataKey="orders" fill="#22C55E" radius={[8, 8, 0, 0]} />
+                      </BarChart>
+                    </ResponsiveContainer>
                   </div>
-                  <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
-                    {period}
-                  </span>
-                </div>
-                <ResponsiveContainer width="100%" height={280} className="mt-6">
-                  <AreaChart data={hourlyPerformance}>
-                    <defs>
-                      <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
-                        <stop offset="5%" stopColor="#C084FC" stopOpacity={0.8} />
-                        <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
-                      </linearGradient>
-                    </defs>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                    <XAxis dataKey="hour" stroke="#9AA1B9" />
-                    <YAxis stroke="#9AA1B9" />
-                    <Tooltip />
-                    <Area
-                      type="monotone"
-                      dataKey="revenue"
-                      stroke="#8B5CF6"
-                      fillOpacity={1}
-                      fill="url(#revenueGradient)"
-                      name="Revenue"
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              </div>
 
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Hourly Metrics</p>
-                    <p className="text-lg font-semibold text-gray-900">Orders vs revenue</p>
-                  </div>
-                  <span className="text-xs text-gray-400">Local timezone</span>
-                </div>
-                <ResponsiveContainer width="100%" height={280} className="mt-6">
-                  <LineChart data={hourlyPerformance}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                    <XAxis dataKey="hour" stroke="#9AA1B9" />
-                    <YAxis stroke="#9AA1B9" />
-                    <Tooltip />
-                    <Legend />
-                    <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={3} dot={false} />
-                    <Line type="monotone" dataKey="revenue" stroke="#F97316" strokeWidth={3} dot={false} />
-                  </LineChart>
-                </ResponsiveContainer>
-              </div>
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-2">
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="text-lg font-semibold text-gray-900">Weekly Performance</p>
-                  <span className="text-xs text-gray-400">Orders by weekday</span>
-                </div>
-                <ResponsiveContainer width="100%" height={260}>
-                  <BarChart data={weekdayData}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
-                    <XAxis dataKey="day" stroke="#9AA1B9" />
-                    <YAxis stroke="#9AA1B9" />
-                    <Tooltip />
-                    <Bar dataKey="orders" fill="#22C55E" radius={[8, 8, 0, 0]} />
-                  </BarChart>
-                </ResponsiveContainer>
-              </div>
-
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-                <div className="mb-4 flex items-center justify-between">
-                  <p className="text-lg font-semibold text-gray-900">Payment Methods</p>
-                  <span className="text-xs text-gray-400">Live split</span>
-                </div>
-                <div className="flex flex-col gap-6 md:flex-row md:items-center">
-                  <ResponsiveContainer width="100%" height={220}>
-                    <PieChart>
-                      <Pie
-                        data={paymentData}
-                        cx="50%"
-                        cy="50%"
-                        innerRadius={60}
-                        outerRadius={90}
-                        paddingAngle={5}
-                        dataKey="value"
-                      >
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Payment Methods</p>
+                      <span className="text-xs text-gray-400">Live split</span>
+                    </div>
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={paymentData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {paymentData.map((entry, index) => (
+                              <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ul className="flex-1 space-y-3 text-sm text-gray-600">
                         {paymentData.map((entry, index) => (
-                          <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index]} />
+                          <li key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: PAYMENT_COLORS[index] }}
+                              ></span>
+                              {entry.name}
+                            </div>
+                            <span className="font-semibold text-gray-900">
+                              {currencyFormatter.format(entry.value)}
+                            </span>
+                          </li>
                         ))}
-                      </Pie>
-                      <Tooltip />
-                    </PieChart>
-                  </ResponsiveContainer>
-                  <ul className="flex-1 space-y-3 text-sm text-gray-600">
-                    {paymentData.map((entry, index) => (
-                      <li key={entry.name} className="flex items-center justify-between">
-                        <div className="flex items-center gap-3">
-                          <span
-                            className="h-3 w-3 rounded-full"
-                            style={{ backgroundColor: PAYMENT_COLORS[index] }}
-                          ></span>
-                          {entry.name}
-                        </div>
-                        <span className="font-semibold text-gray-900">
-                          {currencyFormatter.format(entry.value)}
-                        </span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              </div>
-            </section>
-
-            <section className="grid gap-6 lg:grid-cols-3">
-              <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5 lg:col-span-2">
-                <p className="text-lg font-semibold text-gray-900">Top Selling Highlight</p>
-                <div className="mt-4 flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                  <div>
-                    <p className="text-sm uppercase tracking-[0.4em] text-gray-400">Best Seller</p>
-                    <p className="text-3xl font-semibold text-gray-900">{data.topItem.name}</p>
-                    <p className="mt-1 text-sm text-gray-500">
-                      {data.topItem.qty} units sold {summaryContextLabel}
-                    </p>
+                      </ul>
+                    </div>
                   </div>
-                  <div className="rounded-2xl bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] px-6 py-4 text-right">
-                    <p className="text-sm text-gray-600">Avg order value</p>
-                    <p className="text-2xl font-semibold text-gray-900">
+                </section>
+
+                {/* Platform Split Section */}
+                {paymentPlatformData.length > 0 && (
+                  <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Platform Breakdown</p>
+                      <span className="text-xs text-gray-400">Order source split</span>
+                    </div>
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={paymentPlatformData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {paymentPlatformData.map((entry, index) => (
+                              <Cell key={`cell-platform-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ul className="flex-1 space-y-3 text-sm text-gray-600">
+                        {paymentPlatformData.map((entry, index) => (
+                          <li key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length] }}
+                              ></span>
+                              {entry.name}
+                            </div>
+                            <span className="font-semibold text-gray-900">
+                              {currencyFormatter.format(entry.value)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </section>
+                )}
+              </>
+            )}
+
+            {/* Metrics Tab */}
+            {activeTab === 'metrics' && (
+              <>
+                <section className="grid gap-6 lg:grid-cols-2">
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Revenue Trend</p>
+                        <p className="text-lg font-semibold text-gray-900">Hourly sales momentum</p>
+                      </div>
+                      <span className="rounded-full bg-indigo-50 px-3 py-1 text-xs font-semibold text-indigo-600">
+                        {period}
+                      </span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={280} className="mt-6">
+                      <AreaChart data={hourlyPerformance}>
+                        <defs>
+                          <linearGradient id="revenueGradient" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="5%" stopColor="#C084FC" stopOpacity={0.8} />
+                            <stop offset="95%" stopColor="#A855F7" stopOpacity={0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                        <XAxis dataKey="hour" stroke="#9AA1B9" />
+                        <YAxis stroke="#9AA1B9" />
+                        <Tooltip />
+                        <Area
+                          type="monotone"
+                          dataKey="revenue"
+                          stroke="#8B5CF6"
+                          fillOpacity={1}
+                          fill="url(#revenueGradient)"
+                          name="Revenue"
+                        />
+                      </AreaChart>
+                    </ResponsiveContainer>
+                  </div>
+
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <p className="text-xs uppercase tracking-[0.4em] text-gray-400">Hourly Metrics</p>
+                        <p className="text-lg font-semibold text-gray-900">Orders vs revenue</p>
+                      </div>
+                      <span className="text-xs text-gray-400">Local timezone</span>
+                    </div>
+                    <ResponsiveContainer width="100%" height={280} className="mt-6">
+                      <LineChart data={hourlyPerformance}>
+                        <CartesianGrid strokeDasharray="3 3" stroke="#EEF0FF" />
+                        <XAxis dataKey="hour" stroke="#9AA1B9" />
+                        <YAxis stroke="#9AA1B9" />
+                        <Tooltip />
+                        <Legend />
+                        <Line type="monotone" dataKey="orders" stroke="#2563EB" strokeWidth={3} dot={false} />
+                        <Line type="monotone" dataKey="revenue" stroke="#F97316" strokeWidth={3} dot={false} />
+                      </LineChart>
+                    </ResponsiveContainer>
+                  </div>
+                </section>
+
+                {/* Additional Metrics */}
+                <section className="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-blue-50 to-indigo-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Transaction Rate
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {data?.summary.totalOrders || 0}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">Total transactions {summaryContextLabel}</p>
+                  </div>
+                  
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-green-50 to-emerald-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Revenue Per Order
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
                       {averageOrderValue ? currencyFormatter.format(averageOrderValue) : '—'}
                     </p>
+                    <p className="mt-2 text-sm text-gray-600">Average order value</p>
                   </div>
-                </div>
-                <div className="mt-6 rounded-3xl border border-gray-100 bg-white/70">
-                  {topItemDetails.length > 0 ? (
-                    <ul className="divide-y divide-gray-100">
-                      {topItemDetails.map((item, index) => (
-                        <li
-                          key={`${item.name}-${index}`}
-                          className="flex items-center justify-between gap-4 px-4 py-3 text-sm text-gray-600"
-                        >
-                          <div className="flex items-center gap-4">
-                            <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
-                              {index + 1}
-                            </span>
-                            <div>
-                              <p className="font-semibold text-gray-900">{item.name}</p>
-                              <p className="text-xs text-gray-500">{item.qty.toLocaleString()} units</p>
-                            </div>
-                          </div>
-                          <div className="text-right">
-                            <p className="font-semibold text-gray-900">
-                              {currencyFormatter.format(item.revenue)}
-                            </p>
-                            <p className="text-xs text-gray-500">Revenue</p>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  ) : (
-                    <p className="px-4 py-6 text-sm text-gray-500">
-                      No item-level sales recorded {summaryContextLabel}.
-                    </p>
-                  )}
-                </div>
-                <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-600">
-                  Seamlessly synced with Rista POS — every order, discount, and cash adjustment
-                  stays reconciled with your source of truth.
-                </div>
-              </div>
 
-              <div className="grid gap-4">
-                {highlightCards.map((card) => (
-                  <div
-                    key={card.label}
-                    className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
-                  >
-                    <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
-                      {card.label}
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-purple-50 to-pink-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Tax Revenue
                     </p>
-                    <p className="mt-3 text-3xl font-semibold">{card.value}</p>
-                    <p className="mt-1 text-sm">{card.helper}</p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {currencyFormatter.format(data?.summary.totalTax || 0)}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">GST collected {summaryContextLabel}</p>
                   </div>
-                ))}
-              </div>
-            </section>
+
+                  <div className="rounded-3xl border border-white/70 bg-gradient-to-br from-orange-50 to-red-50 p-5 shadow-lg shadow-slate-900/5">
+                    <p className="text-xs font-semibold uppercase tracking-wide text-gray-600">
+                      Discounts Given
+                    </p>
+                    <p className="mt-3 text-3xl font-semibold text-gray-900">
+                      {currencyFormatter.format(data?.summary.totalDiscount || 0)}
+                    </p>
+                    <p className="mt-2 text-sm text-gray-600">Total discounts {summaryContextLabel}</p>
+                  </div>
+                </section>
+
+                {/* Payment Charts Section */}
+                <section className="grid gap-6 lg:grid-cols-2">
+                  {/* Payment Type Chart */}
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Payment Types</p>
+                      <span className="text-xs text-gray-400">Cash | UPI | Card</span>
+                    </div>
+                    <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                      <ResponsiveContainer width="100%" height={220}>
+                        <PieChart>
+                          <Pie
+                            data={paymentTypeData}
+                            cx="50%"
+                            cy="50%"
+                            innerRadius={60}
+                            outerRadius={90}
+                            paddingAngle={5}
+                            dataKey="value"
+                          >
+                            {paymentTypeData.map((entry, index) => (
+                              <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index % PAYMENT_COLORS.length]} />
+                            ))}
+                          </Pie>
+                          <Tooltip />
+                        </PieChart>
+                      </ResponsiveContainer>
+                      <ul className="flex-1 space-y-3 text-sm text-gray-600">
+                        {paymentTypeData.map((entry, index) => (
+                          <li key={entry.name} className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                              <span
+                                className="h-3 w-3 rounded-full"
+                                style={{ backgroundColor: PAYMENT_COLORS[index % PAYMENT_COLORS.length] }}
+                              ></span>
+                              {entry.name}
+                            </div>
+                            <span className="font-semibold text-gray-900">
+                              {currencyFormatter.format(entry.value)}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </div>
+                  </div>
+
+                  {/* Payment Platform Chart */}
+                  <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                    <div className="mb-4 flex items-center justify-between">
+                      <p className="text-lg font-semibold text-gray-900">Payment Platforms</p>
+                      <span className="text-xs text-gray-400">Order sources</span>
+                    </div>
+                    {paymentPlatformData.length > 0 ? (
+                      <div className="flex flex-col gap-6 md:flex-row md:items-center">
+                        <ResponsiveContainer width="100%" height={220}>
+                          <PieChart>
+                            <Pie
+                              data={paymentPlatformData}
+                              cx="50%"
+                              cy="50%"
+                              innerRadius={60}
+                              outerRadius={90}
+                              paddingAngle={5}
+                              dataKey="value"
+                            >
+                              {paymentPlatformData.map((entry, index) => (
+                                <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
+                              ))}
+                            </Pie>
+                            <Tooltip />
+                          </PieChart>
+                        </ResponsiveContainer>
+                        <ul className="flex-1 space-y-3 text-sm text-gray-600">
+                          {paymentPlatformData.map((entry, index) => (
+                            <li key={entry.name} className="flex items-center justify-between">
+                              <div className="flex items-center gap-3">
+                                <span
+                                  className="h-3 w-3 rounded-full"
+                                  style={{ backgroundColor: PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length] }}
+                                ></span>
+                                {entry.name}
+                              </div>
+                              <span className="font-semibold text-gray-900">
+                                {currencyFormatter.format(entry.value)}
+                              </span>
+                            </li>
+                          ))}
+                        </ul>
+                      </div>
+                    ) : (
+                      <div className="flex h-[220px] items-center justify-center text-gray-500">
+                        <p className="text-sm">No platform data available</p>
+                      </div>
+                    )}
+                  </div>
+                </section>
+              </>
+            )}
+
+            {/* Highlights Tab - Side by side layout on tablets+ */}
+            {activeTab === 'highlights' && (
+              <section className="grid gap-6 md:grid-cols-[65fr,35fr]">
+                {/* Top Selling Highlight - Left side (65%) on tablets+ */}
+                <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                  <p className="text-lg font-semibold text-gray-900">Top Selling Highlight</p>
+                  <div className="mt-4 flex flex-col gap-4">
+                    <div>
+                      <p className="text-sm uppercase tracking-[0.4em] text-gray-400">Best Seller</p>
+                      <p className="text-3xl font-semibold text-gray-900">{data.topItem.name}</p>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {data.topItem.qty} units sold {summaryContextLabel}
+                      </p>
+                    </div>
+                    <div className="rounded-2xl bg-gradient-to-br from-[#FFDEE9] to-[#B5FFFC] px-6 py-4">
+                      <p className="text-sm text-gray-600">Avg order value</p>
+                      <p className="text-2xl font-semibold text-gray-900">
+                        {averageOrderValue ? currencyFormatter.format(averageOrderValue) : '—'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="mt-6 rounded-3xl border border-gray-100 bg-white/70 max-h-96 overflow-y-auto">
+                    {topItemDetails.length > 0 ? (
+                      <ul className="divide-y divide-gray-100">
+                        {topItemDetails.map((item, index) => (
+                          <li
+                            key={`${item.name}-${index}`}
+                            className="flex items-center justify-between gap-4 px-4 py-3 text-sm text-gray-600"
+                          >
+                            <div className="flex items-center gap-4">
+                              <span className="flex h-8 w-8 items-center justify-center rounded-full bg-gray-100 text-xs font-semibold text-gray-500">
+                                {index + 1}
+                              </span>
+                              <div>
+                                <p className="font-semibold text-gray-900">{item.name}</p>
+                                <p className="text-xs text-gray-500">{item.qty.toLocaleString()} units</p>
+                              </div>
+                            </div>
+                            <div className="text-right">
+                              <p className="font-semibold text-gray-900">
+                                {currencyFormatter.format(item.revenue)}
+                              </p>
+                              <p className="text-xs text-gray-500">Revenue</p>
+                            </div>
+                          </li>
+                        ))}
+                      </ul>
+                    ) : (
+                      <p className="px-4 py-6 text-sm text-gray-500">
+                        No item-level sales recorded {summaryContextLabel}.
+                      </p>
+                    )}
+                  </div>
+                  <div className="mt-6 rounded-2xl border border-gray-100 bg-gray-50 p-4 text-sm text-gray-600">
+                    Seamlessly synced with Rista POS — every order, discount, and cash adjustment
+                    stays reconciled with your source of truth.
+                  </div>
+                </div>
+
+                {/* Highlight Cards - Right side (35%) on tablets+ */}
+                <div className="grid gap-4 md:grid-rows-3">
+                  {highlightCards.map((card) => (
+                    <div
+                      key={card.label}
+                      className={`rounded-3xl bg-gradient-to-br ${card.gradient} p-5 shadow-lg shadow-slate-900/5`}
+                    >
+                      <p className="text-xs font-semibold uppercase tracking-[0.4em] text-black/70">
+                        {card.label}
+                      </p>
+                      <p className="mt-3 text-3xl font-semibold">{card.value}</p>
+                      <p className="mt-1 text-sm">{card.helper}</p>
+                    </div>
+                  ))}
+                </div>
+              </section>
+            )}
           </>
         )}
       </main>

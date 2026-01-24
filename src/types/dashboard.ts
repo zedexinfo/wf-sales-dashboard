@@ -8,10 +8,8 @@ export interface SalesSummary {
 }
 
 export interface PaymentAnalytics {
-  cash: number;
-  upi: number;
-  card: number;
-  cashInflow: number;
+  // Dynamic payment modes - can include Cash, UPI, Card, Zomato, Swiggy, DotPe, etc.
+  [mode: string]: number;
 }
 
 export interface TopItem {

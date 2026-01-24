@@ -29,12 +29,7 @@ const ZERO_SUMMARY: SalesSummary = {
   totalDiscount: 0,
 };
 
-const ZERO_PAYMENTS: PaymentAnalytics = {
-  cash: 0,
-  card: 0,
-  upi: 0,
-  cashInflow: 0,
-};
+const ZERO_PAYMENTS: PaymentAnalytics = {};
 
 const MAX_RANGE_DAYS = 366;
 const SALES_FETCH_CONCURRENCY = 4;

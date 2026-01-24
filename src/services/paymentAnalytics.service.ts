@@ -12,14 +12,34 @@ export function computePaymentAnalytics(sales: RistaSale[]): PaymentAnalytics {
   let cash = 0;
   let upi = 0;
   let card = 0;
+  let zomato = 0;
+  let swiggy = 0;
+  let other = 0;
 
   for (const sale of sales) {
+    // Check source platform
+    const source = (sale.sourceInfo?.source || "").toLowerCase();
+    const channel = (sale.channel || "").toLowerCase();
+    const isZomato = source.includes("zomato") || channel.includes("zomato");
+    const isSwiggy = source.includes("swiggy") || channel.includes("swiggy");
+    const isOnlineOrder = source && source !== "api" && source !== "callcenter" && !source.includes("dine");
+    
     // Iterate through payments array from Rista Sale model
     for (const payment of sale.payments || []) {
       const amount = payment.amount || 0;
       const paymentMode = (payment.mode || "").toLowerCase();
       const subMode = (payment.subMode || "").toLowerCase();
 
+      // Categorize by platform first if delivery exists
+      if (isZomato) {
+        zomato += amount;
+      } else if (isSwiggy) {
+        swiggy += amount;
+      } else if (isOnlineOrder) {
+        other += amount;
+      }
+
+      // Also categorize by payment type
       if (paymentMode === "cash" || paymentMode.includes("cash")) {
         cash += amount;
       } else if (
@@ -57,6 +77,9 @@ export function computePaymentAnalytics(sales: RistaSale[]): PaymentAnalytics {
     upi,
     card,
     cashInflow: cash, // Cash inflow is total cash payments
+    zomato,
+    swiggy,
+    other,
   };
 }
 
@@ -65,12 +88,7 @@ const PAYMENT_MODE_KEYWORDS = {
   upi: ["upi", "paytm", "phonepe", "gpay", "google", "bharatpe", "tez"],
 };
 
-const ZERO_PAYMENT_ANALYTICS: PaymentAnalytics = {
-  cash: 0,
-  upi: 0,
-  card: 0,
-  cashInflow: 0,
-};
+const ZERO_PAYMENT_ANALYTICS: PaymentAnalytics = {};
 
 function categorizeSummaryPayment(mode?: string) {
   if (!mode) {
@@ -96,6 +114,7 @@ function categorizeSummaryPayment(mode?: string) {
 
 /**
  * Convert aggregated payment summary from analytics API to PaymentAnalytics shape.
+ * Simply returns all payment modes as-is without categorization.
  */
 export function computePaymentAnalyticsFromSummary(
   payments?: SalesSummaryPaymentsItem[]
@@ -104,27 +123,19 @@ export function computePaymentAnalyticsFromSummary(
     return { ...ZERO_PAYMENT_ANALYTICS };
   }
 
-  let cash = 0;
-  let upi = 0;
-  let card = 0;
+  const result: PaymentAnalytics = {};
 
   for (const payment of payments) {
     const amount = payment.amount || 0;
-    const bucket = categorizeSummaryPayment(payment.mode);
+    const mode = payment.mode || "Unknown";
 
-    if (bucket === "cash") {
-      cash += amount;
-    } else if (bucket === "upi") {
-      upi += amount;
+    // Add or accumulate the amount for this payment mode
+    if (result[mode]) {
+      result[mode] += amount;
     } else {
-      card += amount;
+      result[mode] = amount;
     }
   }
 
-  return {
-    cash,
-    upi,
-    card,
-    cashInflow: cash,
-  };
+  return result;
 }
