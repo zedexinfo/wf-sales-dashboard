@@ -16,6 +16,7 @@ import {
   SalesSummary,
 } from "@/src/types/dashboard";
 import { NextRequest, NextResponse } from "next/server";
+import { apiCache, withCache } from "@/src/lib/cache";
 
 const PERIOD_LOOKUP: Record<string, DashboardPeriod> = {
   day: "Day",
@@ -267,32 +268,41 @@ export async function GET(request: NextRequest) {
   }
 
   try {
-    const aggregatedSummary: SalesSummary = { ...ZERO_SUMMARY };
-    const aggregatedSales: Sale[] = [];
+    // Generate cache key for this request
+    const cacheKey = apiCache.constructor.name === 'InMemoryCache'
+      ? `dashboard:${branch}:${period}:${dateRange.join(',')}` 
+      : '';
 
-    await aggregateRangeData(
-      branch,
-      dateRange,
-      aggregatedSummary,
-      aggregatedSales
-    );
+    const dashboardData = await withCache(cacheKey, async () => {
+      const aggregatedSummary: SalesSummary = { ...ZERO_SUMMARY };
+      const aggregatedSales: Sale[] = [];
 
-    // Compute payment and channel analytics from all sales
-    const aggregatedPayments = computePaymentAnalytics(aggregatedSales);
-    const aggregatedChannels = computeChannelAnalytics(aggregatedSales);
+      await aggregateRangeData(
+        branch,
+        dateRange,
+        aggregatedSummary,
+        aggregatedSales
+      );
 
-    const topItems = computeTopItems(aggregatedSales, 10);
-    const bestSeller = topItems[0] ?? { name: "N/A", qty: 0, revenue: 0 };
+      // Compute payment and channel analytics from all sales
+      const aggregatedPayments = computePaymentAnalytics(aggregatedSales);
+      const aggregatedChannels = computeChannelAnalytics(aggregatedSales);
 
-    const dashboardData: DashboardData = {
-      summary: aggregatedSummary,
-      payments: aggregatedPayments,
-      channels: aggregatedChannels,
-      ordersByHour: computeOrdersByHour(aggregatedSales),
-      ordersByWeekday: computeOrdersByWeekday(aggregatedSales),
-      topItem: { name: bestSeller.name, qty: bestSeller.qty },
-      topItems,
-    };
+      const topItems = computeTopItems(aggregatedSales, 10);
+      const bestSeller = topItems[0] ?? { name: "N/A", qty: 0, revenue: 0 };
+
+      const data: DashboardData = {
+        summary: aggregatedSummary,
+        payments: aggregatedPayments,
+        channels: aggregatedChannels,
+        ordersByHour: computeOrdersByHour(aggregatedSales),
+        ordersByWeekday: computeOrdersByWeekday(aggregatedSales),
+        topItem: { name: bestSeller.name, qty: bestSeller.qty },
+        topItems,
+      };
+
+      return data;
+    });
 
     return NextResponse.json(dashboardData);
   } catch (error) {
