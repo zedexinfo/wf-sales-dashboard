@@ -13,8 +13,6 @@ import {
 import {
   DashboardData,
   DashboardPeriod,
-  PaymentAnalytics,
-  ChannelAnalytics,
   SalesSummary,
 } from "@/src/types/dashboard";
 import { NextRequest, NextResponse } from "next/server";
@@ -33,10 +31,6 @@ const ZERO_SUMMARY: SalesSummary = {
   totalTax: 0,
   totalDiscount: 0,
 };
-
-const ZERO_PAYMENTS: PaymentAnalytics = {};
-
-const ZERO_CHANNELS: ChannelAnalytics = {};
 
 const MAX_RANGE_DAYS = 366;
 const SALES_FETCH_CONCURRENCY = 4;
