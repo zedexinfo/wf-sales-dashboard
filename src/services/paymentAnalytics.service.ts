@@ -122,6 +122,7 @@ function categorizeSummaryPayment(mode?: string) {
 
 /**
  * Convert aggregated payment summary from analytics API to PaymentAnalytics shape.
+ * Handles both payment types (Cash, UPI, Card) and platforms (Zomato, Swiggy, etc.)
  */
 export function computePaymentAnalyticsFromSummary(
   payments?: SalesSummaryPaymentsItem[]
@@ -133,17 +134,48 @@ export function computePaymentAnalyticsFromSummary(
   let cash = 0;
   let upi = 0;
   let card = 0;
+  let zomato = 0;
+  let swiggy = 0;
+  let other = 0;
+
+  // Platform keywords for categorization
+  const platformKeywords = {
+    zomato: ["zomato"],
+    swiggy: ["swiggy"],
+    otherPlatforms: ["dotpe", "magicpin", "dunzo", "uber", "deliveroo", "foodpanda"],
+  };
 
   for (const payment of payments) {
     const amount = payment.amount || 0;
-    const bucket = categorizeSummaryPayment(payment.mode);
+    const mode = (payment.mode || "").toLowerCase();
 
-    if (bucket === "cash") {
-      cash += amount;
-    } else if (bucket === "upi") {
-      upi += amount;
-    } else {
-      card += amount;
+    // Check if this is a platform payment
+    const isZomato = platformKeywords.zomato.some(keyword => mode.includes(keyword));
+    const isSwiggy = platformKeywords.swiggy.some(keyword => mode.includes(keyword));
+    const isOtherPlatform = platformKeywords.otherPlatforms.some(keyword => mode.includes(keyword));
+
+    // Categorize by platform
+    if (isZomato) {
+      zomato += amount;
+    } else if (isSwiggy) {
+      swiggy += amount;
+    } else if (isOtherPlatform) {
+      other += amount;
+    }
+
+    // Categorize by payment type (Cash, UPI, Card)
+    // Skip platform names when categorizing payment types
+    if (!isZomato && !isSwiggy && !isOtherPlatform) {
+      if (mode.includes("cash")) {
+        cash += amount;
+      } else if (PAYMENT_MODE_KEYWORDS.upi.some(keyword => mode.includes(keyword))) {
+        upi += amount;
+      } else if (mode.includes("card") || mode.includes("credit") || mode.includes("debit")) {
+        card += amount;
+      } else {
+        // Default unknown payment types to card
+        card += amount;
+      }
     }
   }
 
@@ -152,8 +184,8 @@ export function computePaymentAnalyticsFromSummary(
     upi,
     card,
     cashInflow: cash,
-    zomato: 0,
-    swiggy: 0,
-    other: 0,
+    zomato,
+    swiggy,
+    other,
   };
 }
