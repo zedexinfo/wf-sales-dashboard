@@ -2,9 +2,13 @@
 
 import {
   fetchBranches,
+  fetchBranchComparison,
   fetchDashboardData,
   setBranch,
   setDate,
+  setComparisonMode,
+  setSelectedBranches,
+  toggleBranchSelection,
 } from "@/src/store/dashboardSlice";
 import { useAppDispatch, useAppSelector } from "@/src/store/hooks";
 import type { DashboardPeriod, PaymentAnalytics } from "@/src/types/dashboard";
@@ -170,10 +174,29 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { branch, date, data, branches, branchesLoading, loading, error } =
-    useAppSelector((state) => state.dashboard);
+  const { 
+    branch, 
+    date, 
+    data, 
+    branches, 
+    branchesLoading, 
+    loading, 
+    error,
+    comparisonMode,
+    selectedBranches,
+    comparisonData,
+    comparisonLoading,
+    comparisonError,
+  } = useAppSelector((state) => state.dashboard);
   const [period, setPeriod] = useState<DashboardPeriod>("Day");
   const [customRange, setCustomRange] = useState<{
+    start: string;
+    end: string;
+  }>(() => ({
+    start: date,
+    end: date,
+  }));
+  const [comparisonRange, setComparisonRange] = useState<{
     start: string;
     end: string;
   }>(() => ({
@@ -199,6 +222,17 @@ export default function DashboardPage() {
     return customRange.start <= customRange.end;
   }, [customRange.start, customRange.end]);
 
+  const isComparisonRangeValid = useMemo(() => {
+    if (!comparisonRange.start || !comparisonRange.end) {
+      return false;
+    }
+    // Check if range is within 1-7 days
+    const start = new Date(comparisonRange.start);
+    const end = new Date(comparisonRange.end);
+    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / (1000 * 60 * 60 * 24));
+    return comparisonRange.start <= comparisonRange.end && daysDiff >= 0 && daysDiff <= 6;
+  }, [comparisonRange.start, comparisonRange.end]);
+
   const monthValue = useMemo(() => date.slice(0, 7), [date]);
   const yearValue = useMemo(() => date.slice(0, 4), [date]);
 
@@ -207,7 +241,7 @@ export default function DashboardPage() {
   }, [dispatch]);
 
   useEffect(() => {
-    if (!branch) {
+    if (comparisonMode || !branch) {
       return;
     }
 
@@ -219,7 +253,7 @@ export default function DashboardPage() {
     }
 
     dispatch(fetchDashboardData({ branch, date, period }));
-  }, [branch, customRange, date, dispatch, isCustomRangeValid, period]);
+  }, [branch, comparisonMode, customRange, date, dispatch, isCustomRangeValid, period]);
 
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     dispatch(setBranch(e.target.value));
@@ -253,6 +287,50 @@ export default function DashboardPage() {
 
   const handleDateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     dispatch(setDate(e.target.value));
+  };
+
+  const handleComparisonRangeChange =
+    (key: "start" | "end") => (event: React.ChangeEvent<HTMLInputElement>) => {
+      setComparisonRange((prev) => ({
+        ...prev,
+        [key]: event.target.value,
+      }));
+    };
+
+  const handleToggleComparisonMode = () => {
+    dispatch(setComparisonMode(!comparisonMode));
+  };
+
+  const handleBranchSelectionToggle = (branchId: string) => {
+    dispatch(toggleBranchSelection(branchId));
+  };
+
+  const handleSelectAllBranches = () => {
+    if (selectedBranches.length === branches.length) {
+      dispatch(setSelectedBranches([]));
+    } else {
+      dispatch(setSelectedBranches(branches.map(b => b.id)));
+    }
+  };
+
+  const handleCompareNow = () => {
+    if (selectedBranches.length === 0 || !isComparisonRangeValid) {
+      return;
+    }
+
+    const branchNames = branches.reduce((acc, b) => {
+      acc[b.id] = b.name;
+      return acc;
+    }, {} as Record<string, string>);
+
+    dispatch(
+      fetchBranchComparison({
+        branches: selectedBranches,
+        startDate: comparisonRange.start,
+        endDate: comparisonRange.end,
+        branchNames,
+      })
+    );
   };
 
   const handleRefresh = () => {
@@ -486,28 +564,133 @@ export default function DashboardPage() {
       <main className="mx-auto max-w-7xl space-y-8 px-4 py-10">
         <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
           <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-900">Filters</h2>
-            <button
-              onClick={() => setFiltersCollapsed(!filtersCollapsed)}
-              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-2"
-            >
-              {filtersCollapsed ? (
-                <>
-                  <span>Show Filters</span>
-                  <span className="transform rotate-180 transition-transform">
-                    ▼
-                  </span>
-                </>
-              ) : (
-                <>
-                  <span>Hide Filters</span>
-                  <span className="transition-transform">▼</span>
-                </>
-              )}
-            </button>
+            <h2 className="text-lg font-semibold text-gray-900">
+              {comparisonMode ? "Branch Comparison" : "Filters"}
+            </h2>
+            <div className="flex items-center gap-3">
+              <button
+                onClick={handleToggleComparisonMode}
+                className={`px-4 py-2 text-sm font-medium rounded-full transition ${
+                  comparisonMode
+                    ? "bg-indigo-600 text-white hover:bg-indigo-700"
+                    : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                }`}
+              >
+                {comparisonMode ? "Exit Comparison" : "Compare Branches"}
+              </button>
+              <button
+                onClick={() => setFiltersCollapsed(!filtersCollapsed)}
+                className="text-sm text-indigo-600 hover:text-indigo-700 font-medium flex items-center gap-2"
+              >
+                {filtersCollapsed ? (
+                  <>
+                    <span>Show {comparisonMode ? "Options" : "Filters"}</span>
+                    <span className="transform rotate-180 transition-transform">
+                      ▼
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span>Hide {comparisonMode ? "Options" : "Filters"}</span>
+                    <span className="transition-transform">▼</span>
+                  </>
+                )}
+              </button>
+            </div>
           </div>
 
-          {!filtersCollapsed && (
+          {!filtersCollapsed && comparisonMode && (
+            <div className="space-y-4">
+              {/* Date Range Selection */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <div className="flex flex-col">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                    Start Date
+                  </label>
+                  <input
+                    type="date"
+                    value={comparisonRange.start}
+                    onChange={handleComparisonRangeChange("start")}
+                    disabled={comparisonLoading}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+                <div className="flex flex-col">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-2">
+                    End Date
+                  </label>
+                  <input
+                    type="date"
+                    value={comparisonRange.end}
+                    onChange={handleComparisonRangeChange("end")}
+                    disabled={comparisonLoading}
+                    className="rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
+                  />
+                </div>
+              </div>
+
+              {!isComparisonRangeValid && comparisonRange.start && comparisonRange.end && (
+                <p className="text-sm text-red-600">
+                  Please select a valid date range (1 day to 1 week maximum).
+                </p>
+              )}
+
+              {/* Branch Selection */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <label className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                    Select Branches to Compare
+                  </label>
+                  <button
+                    onClick={handleSelectAllBranches}
+                    className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
+                  >
+                    {selectedBranches.length === branches.length ? "Deselect All" : "Select All"}
+                  </button>
+                </div>
+                <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
+                  {branches.map((b) => (
+                    <label
+                      key={b.id}
+                      className={`flex items-center gap-2 rounded-xl border-2 px-4 py-3 cursor-pointer transition ${
+                        selectedBranches.includes(b.id)
+                          ? "border-indigo-500 bg-indigo-50"
+                          : "border-gray-200 bg-gray-50 hover:border-gray-300"
+                      }`}
+                    >
+                      <input
+                        type="checkbox"
+                        checked={selectedBranches.includes(b.id)}
+                        onChange={() => handleBranchSelectionToggle(b.id)}
+                        disabled={comparisonLoading}
+                        className="h-4 w-4 text-indigo-600 rounded"
+                      />
+                      <span className="text-sm font-medium text-gray-900">
+                        {b.name}
+                      </span>
+                    </label>
+                  ))}
+                </div>
+              </div>
+
+              {/* Compare Button */}
+              <div className="flex justify-end">
+                <button
+                  onClick={handleCompareNow}
+                  disabled={
+                    comparisonLoading ||
+                    selectedBranches.length === 0 ||
+                    !isComparisonRangeValid
+                  }
+                  className="rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#2563EB] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                >
+                  {comparisonLoading ? "Comparing..." : "Compare Now"}
+                </button>
+              </div>
+            </div>
+          )}
+
+          {!filtersCollapsed && !comparisonMode && (
             <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-[2fr,1fr,2fr,auto]">
               <div className="flex flex-col">
                 <label
@@ -642,27 +825,31 @@ export default function DashboardPage() {
             </div>
           )}
 
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
-            <div>
-              <p className="text-xs uppercase tracking-[0.4em] text-gray-400">
-                Reporting Period
-              </p>
-              <p className="text-lg font-semibold text-gray-900">
-                {friendlyDate}
-              </p>
+          {!filtersCollapsed && !comparisonMode && (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
+              <div>
+                <p className="text-xs uppercase tracking-[0.4em] text-gray-400">
+                  Reporting Period
+                </p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {friendlyDate}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="text-xs uppercase tracking-[0.4em] text-gray-400">
+                  Branch
+                </p>
+                <p className="text-lg font-semibold text-gray-900">
+                  {selectedBranchName}
+                </p>
+              </div>
             </div>
-            <div className="text-right">
-              <p className="text-xs uppercase tracking-[0.4em] text-gray-400">
-                Branch
-              </p>
-              <p className="text-lg font-semibold text-gray-900">
-                {selectedBranchName}
-              </p>
-            </div>
-          </div>
+          )}
 
-          {/* Tabs - Centered */}
-          <div className="mt-6 flex justify-center gap-2 border-b border-gray-200">
+          {!comparisonMode && (
+            <>
+              {/* Tabs - Centered */}
+              <div className="mt-6 flex justify-center gap-2 border-b border-gray-200">
             <button
               onClick={() => setActiveTab("overview")}
               className={`px-6 py-3 text-sm font-semibold transition-colors ${
@@ -694,15 +881,138 @@ export default function DashboardPage() {
               Highlights
             </button>
           </div>
+            </>
+          )}
         </section>
 
-        {error && (
+        {comparisonMode && comparisonError && (
+          <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-700">
+            Error: {comparisonError}
+          </div>
+        )}
+
+        {comparisonMode && comparisonLoading && (
+          <div className="rounded-3xl border border-white/60 bg-white p-10 text-center shadow-lg shadow-slate-900/5">
+            <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-transparent"></div>
+            <p className="font-medium text-gray-700">
+              Comparing branch data...
+            </p>
+          </div>
+        )}
+
+        {comparisonMode && comparisonData && !comparisonLoading && (
+          <section className="space-y-6">
+            <h3 className="text-2xl font-bold text-gray-900">
+              Branch Comparison Results
+            </h3>
+            
+            {/* Comparison Table */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5 overflow-x-auto">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary Comparison</h4>
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b border-gray-200">
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Branch</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Total Revenue</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Total Orders</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Avg Order Value</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Tax Collected</th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Discounts</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {comparisonData.map((branchData, idx) => {
+                    const avgOrderValue = branchData.data.summary.totalOrders > 0
+                      ? branchData.data.summary.totalSales / branchData.data.summary.totalOrders
+                      : 0;
+                    return (
+                      <tr key={branchData.branchId} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
+                        <td className="px-4 py-3 font-medium text-gray-900">{branchData.branchName}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          {currencyFormatter.format(branchData.data.summary.totalSales)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          {branchData.data.summary.totalOrders.toLocaleString()}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          {currencyFormatter.format(avgOrderValue)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          {currencyFormatter.format(branchData.data.summary.totalTax)}
+                        </td>
+                        <td className="px-4 py-3 text-right text-gray-700">
+                          {currencyFormatter.format(branchData.data.summary.totalDiscount)}
+                        </td>
+                      </tr>
+                    );
+                  })}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Revenue Comparison Chart */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Revenue Comparison</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={comparisonData.map(bd => ({
+                    name: bd.branchName,
+                    revenue: bd.data.summary.totalSales,
+                    orders: bd.data.summary.totalOrders,
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip
+                    formatter={(value: number) => currencyFormatter.format(value)}
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.96)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Bar dataKey="revenue" fill="#7C3AED" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Orders Comparison Chart */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Orders Comparison</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={comparisonData.map(bd => ({
+                    name: bd.branchName,
+                    orders: bd.data.summary.totalOrders,
+                  }))}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="name" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.96)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Bar dataKey="orders" fill="#2563EB" radius={[8, 8, 0, 0]} />
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+          </section>
+        )}
+
+        {!comparisonMode && error && (
           <div className="rounded-2xl border border-red-100 bg-red-50 px-4 py-3 text-red-700">
             Error: {error}
           </div>
         )}
 
-        {loading && (
+        {!comparisonMode && loading && (
           <div className="rounded-3xl border border-white/60 bg-white p-10 text-center shadow-lg shadow-slate-900/5">
             <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-gray-200 border-t-transparent"></div>
             <p className="font-medium text-gray-700">
@@ -711,7 +1021,7 @@ export default function DashboardPage() {
           </div>
         )}
 
-        {!loading && data && (
+        {!comparisonMode && data && !loading && (
           <>
             {/* Overview Tab */}
             {activeTab === "overview" && (
