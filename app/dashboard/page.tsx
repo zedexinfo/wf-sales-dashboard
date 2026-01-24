@@ -297,7 +297,7 @@ export default function DashboardPage() {
       .map(([name, value]) => ({ name, value }))
       .filter(p => p.value > 0)
       .sort((a, b) => b.value - a.value); // Sort by value descending
-  }, [data?.payments]);
+  }, [data]);
 
   // Payment type data (Cash, UPI, Card) - for Metrics tab
   const paymentTypeData = useMemo(() => {
@@ -307,7 +307,7 @@ export default function DashboardPage() {
       .filter(([name]) => paymentTypes.includes(name))
       .map(([name, value]) => ({ name, value }))
       .filter(p => p.value > 0);
-  }, [data?.payments]);
+  }, [data]);
 
   // Platform data - for now same as payment data, but filtered for known platforms
   const paymentPlatformData = useMemo(() => {
@@ -329,7 +329,7 @@ export default function DashboardPage() {
     }
     
     return platformData.sort((a, b) => b.value - a.value);
-  }, [data?.payments]);
+  }, [data]);
 
   const peakHour = hourlyPerformance.reduce(
     (acc, point) => (point.orders > acc.orders ? point : acc),
