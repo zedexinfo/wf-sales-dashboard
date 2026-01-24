@@ -299,36 +299,13 @@ export default function DashboardPage() {
       .sort((a, b) => b.value - a.value); // Sort by value descending
   }, [data]);
 
-  // Payment type data (Cash, UPI, Card) - for Metrics tab
-  const paymentTypeData = useMemo(() => {
-    if (!data?.payments) return [];
-    const paymentTypes = ['Cash', 'UPI', 'Card', 'cash', 'upi', 'card'];
-    return Object.entries(data.payments)
-      .filter(([name]) => paymentTypes.includes(name))
+  // Channel/Platform data - from channels field
+  const channelData = useMemo(() => {
+    if (!data?.channels) return [];
+    return Object.entries(data.channels)
       .map(([name, value]) => ({ name, value }))
-      .filter(p => p.value > 0);
-  }, [data]);
-
-  // Platform data - for now same as payment data, but filtered for known platforms
-  const paymentPlatformData = useMemo(() => {
-    if (!data?.payments) return [];
-    // Known platforms from branch channels
-    const platforms = ['Zomato', 'Swiggy', 'DotPe', 'Magicpin', 'zomato', 'swiggy', 'dotpe', 'magicpin'];
-    const platformData = Object.entries(data.payments)
-      .filter(([name]) => platforms.some(p => name.toLowerCase().includes(p.toLowerCase())))
-      .map(([name, value]) => ({ name, value }))
-      .filter(p => p.value > 0);
-    
-    // Calculate dine-in from payment types (Cash, UPI, Card)
-    const dineInAmount = Object.entries(data.payments)
-      .filter(([name]) => ['Cash', 'UPI', 'Card', 'cash', 'upi', 'card'].includes(name))
-      .reduce((sum, [, value]) => sum + value, 0);
-    
-    if (dineInAmount > 0) {
-      platformData.push({ name: 'Dine-in', value: dineInAmount });
-    }
-    
-    return platformData.sort((a, b) => b.value - a.value);
+      .filter(p => p.value > 0)
+      .sort((a, b) => b.value - a.value); // Sort by value descending
   }, [data]);
 
   const peakHour = hourlyPerformance.reduce(
@@ -381,7 +358,7 @@ export default function DashboardPage() {
         },
         {
           label: 'Cash Inflow',
-          value: currencyFormatter.format(data.payments.cashInflow),
+          value: currencyFormatter.format(data.payments.Cash || data.payments.cash || 0),
           helper: `Physical tender ${summaryContextLabel}`,
         },
         {
@@ -409,14 +386,14 @@ export default function DashboardPage() {
         {
           label: 'Cash Share',
           value: `${Math.round(
-            (data.payments.cash /
+            ((data.payments.Cash || data.payments.cash || 0) /
               Math.max(
-                data.payments.cash + data.payments.card + data.payments.upi,
+                Object.values(data.payments).reduce((sum, val) => sum + val, 0),
                 1
               )) *
               100
           )}%`,
-          helper: `${currencyFormatter.format(data.payments.cash)} collected ${summaryContextLabel}`,
+          helper: `${currencyFormatter.format(data.payments.Cash || data.payments.cash || 0)} collected ${summaryContextLabel}`,
           gradient: 'from-[#FBC2EB] to-[#A18CD1] text-[#3F1E5B]',
         },
       ]
@@ -774,17 +751,17 @@ export default function DashboardPage() {
                 </section>
 
                 {/* Platform Split Section */}
-                {paymentPlatformData.length > 0 && (
+                {channelData.length > 0 && (
                   <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
                     <div className="mb-4 flex items-center justify-between">
                       <p className="text-lg font-semibold text-gray-900">Platform Breakdown</p>
-                      <span className="text-xs text-gray-400">Order source split</span>
+                      <span className="text-xs text-gray-400">Channel split</span>
                     </div>
                     <div className="flex flex-col gap-6 md:flex-row md:items-center">
                       <ResponsiveContainer width="100%" height={220}>
                         <PieChart>
                           <Pie
-                            data={paymentPlatformData}
+                            data={channelData}
                             cx="50%"
                             cy="50%"
                             innerRadius={60}
@@ -792,15 +769,15 @@ export default function DashboardPage() {
                             paddingAngle={5}
                             dataKey="value"
                           >
-                            {paymentPlatformData.map((entry, index) => (
-                              <Cell key={`cell-platform-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
+                            {channelData.map((entry, index) => (
+                              <Cell key={`cell-channel-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
                             ))}
                           </Pie>
                           <Tooltip />
                         </PieChart>
                       </ResponsiveContainer>
                       <ul className="flex-1 space-y-3 text-sm text-gray-600">
-                        {paymentPlatformData.map((entry, index) => (
+                        {channelData.map((entry, index) => (
                           <li key={entry.name} className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <span
@@ -929,14 +906,14 @@ export default function DashboardPage() {
                   {/* Payment Type Chart */}
                   <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
                     <div className="mb-4 flex items-center justify-between">
-                      <p className="text-lg font-semibold text-gray-900">Payment Types</p>
-                      <span className="text-xs text-gray-400">Cash | UPI | Card</span>
+                      <p className="text-lg font-semibold text-gray-900">Payment Methods</p>
+                      <span className="text-xs text-gray-400">Payment modes</span>
                     </div>
                     <div className="flex flex-col gap-6 md:flex-row md:items-center">
                       <ResponsiveContainer width="100%" height={220}>
                         <PieChart>
                           <Pie
-                            data={paymentTypeData}
+                            data={paymentData}
                             cx="50%"
                             cy="50%"
                             innerRadius={60}
@@ -944,7 +921,7 @@ export default function DashboardPage() {
                             paddingAngle={5}
                             dataKey="value"
                           >
-                            {paymentTypeData.map((entry, index) => (
+                            {paymentData.map((entry, index) => (
                               <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[index % PAYMENT_COLORS.length]} />
                             ))}
                           </Pie>
@@ -952,7 +929,7 @@ export default function DashboardPage() {
                         </PieChart>
                       </ResponsiveContainer>
                       <ul className="flex-1 space-y-3 text-sm text-gray-600">
-                        {paymentTypeData.map((entry, index) => (
+                        {paymentData.map((entry, index) => (
                           <li key={entry.name} className="flex items-center justify-between">
                             <div className="flex items-center gap-3">
                               <span
@@ -970,18 +947,18 @@ export default function DashboardPage() {
                     </div>
                   </div>
 
-                  {/* Payment Platform Chart */}
+                  {/* Channel/Platform Chart */}
                   <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
                     <div className="mb-4 flex items-center justify-between">
-                      <p className="text-lg font-semibold text-gray-900">Payment Platforms</p>
-                      <span className="text-xs text-gray-400">Order sources</span>
+                      <p className="text-lg font-semibold text-gray-900">Sales Channels</p>
+                      <span className="text-xs text-gray-400">Channel breakdown</span>
                     </div>
-                    {paymentPlatformData.length > 0 ? (
+                    {channelData.length > 0 ? (
                       <div className="flex flex-col gap-6 md:flex-row md:items-center">
                         <ResponsiveContainer width="100%" height={220}>
                           <PieChart>
                             <Pie
-                              data={paymentPlatformData}
+                              data={channelData}
                               cx="50%"
                               cy="50%"
                               innerRadius={60}
@@ -989,7 +966,7 @@ export default function DashboardPage() {
                               paddingAngle={5}
                               dataKey="value"
                             >
-                              {paymentPlatformData.map((entry, index) => (
+                              {channelData.map((entry, index) => (
                                 <Cell key={`cell-${entry.name}`} fill={PAYMENT_COLORS[(index + 3) % PAYMENT_COLORS.length]} />
                               ))}
                             </Pie>
@@ -997,7 +974,7 @@ export default function DashboardPage() {
                           </PieChart>
                         </ResponsiveContainer>
                         <ul className="flex-1 space-y-3 text-sm text-gray-600">
-                          {paymentPlatformData.map((entry, index) => (
+                          {channelData.map((entry, index) => (
                             <li key={entry.name} className="flex items-center justify-between">
                               <div className="flex items-center gap-3">
                                 <span
@@ -1015,7 +992,7 @@ export default function DashboardPage() {
                       </div>
                     ) : (
                       <div className="flex h-[220px] items-center justify-center text-gray-500">
-                        <p className="text-sm">No platform data available</p>
+                        <p className="text-sm">No channel data available</p>
                       </div>
                     )}
                   </div>

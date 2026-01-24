@@ -2,85 +2,55 @@ import {
   Sale as RistaSale,
   SalesSummaryPaymentsItem,
 } from "../api/ristaPlatformAPI.schemas";
-import { PaymentAnalytics } from "../types/dashboard";
+import { PaymentAnalytics, ChannelAnalytics } from "../types/dashboard";
 
 /**
  * Compute payment analytics from sales data
- * Categorizes payments by: Cash, UPI (via subMode), Card, and total cash inflow
+ * Categorizes payments by mode: Cash, UPI, Card, etc.
+ * This focuses ONLY on payment methods from the payments array
  */
 export function computePaymentAnalytics(sales: RistaSale[]): PaymentAnalytics {
-  let cash = 0;
-  let upi = 0;
-  let card = 0;
-  let zomato = 0;
-  let swiggy = 0;
-  let other = 0;
+  const paymentModes: { [mode: string]: number } = {};
 
   for (const sale of sales) {
-    // Check source platform
-    const source = (sale.sourceInfo?.source || "").toLowerCase();
-    const channel = (sale.channel || "").toLowerCase();
-    const isZomato = source.includes("zomato") || channel.includes("zomato");
-    const isSwiggy = source.includes("swiggy") || channel.includes("swiggy");
-    const isOnlineOrder = source && source !== "api" && source !== "callcenter" && !source.includes("dine");
-    
     // Iterate through payments array from Rista Sale model
     for (const payment of sale.payments || []) {
       const amount = payment.amount || 0;
-      const paymentMode = (payment.mode || "").toLowerCase();
-      const subMode = (payment.subMode || "").toLowerCase();
+      const paymentMode = payment.mode || "Unknown";
 
-      // Categorize by platform first if delivery exists
-      if (isZomato) {
-        zomato += amount;
-      } else if (isSwiggy) {
-        swiggy += amount;
-      } else if (isOnlineOrder) {
-        other += amount;
-      }
-
-      // Also categorize by payment type
-      if (paymentMode === "cash" || paymentMode.includes("cash")) {
-        cash += amount;
-      } else if (
-        paymentMode === "card" ||
-        subMode.includes("card") ||
-        paymentMode.includes("card")
-      ) {
-        card += amount;
-      } else if (
-        subMode.includes("upi") ||
-        paymentMode === "upi" ||
-        paymentMode.includes("upi")
-      ) {
-        upi += amount;
-      } else if (
-        paymentMode === "digital" ||
-        paymentMode === "online" ||
-        paymentMode.includes("digital")
-      ) {
-        // Categorize digital payments based on subMode
-        if (subMode.includes("upi")) {
-          upi += amount;
-        } else if (subMode.includes("card")) {
-          card += amount;
-        } else {
-          // Default digital payment to card
-          card += amount;
-        }
+      // Accumulate by payment mode
+      if (paymentModes[paymentMode]) {
+        paymentModes[paymentMode] += amount;
+      } else {
+        paymentModes[paymentMode] = amount;
       }
     }
   }
 
-  return {
-    cash,
-    upi,
-    card,
-    cashInflow: cash, // Cash inflow is total cash payments
-    zomato,
-    swiggy,
-    other,
-  };
+  return paymentModes;
+}
+
+/**
+ * Compute channel analytics from sales data
+ * Categorizes sales by channel: Dine-in, Takeaway, Zomato, Swiggy, DotPe, Magicpin, etc.
+ * This focuses on the channel field from the sale
+ */
+export function computeChannelAnalytics(sales: RistaSale[]): ChannelAnalytics {
+  const channels: { [channel: string]: number } = {};
+
+  for (const sale of sales) {
+    const channel = sale.channel || "Unknown";
+    const amount = sale.billRoundedAmount || sale.totalAmount || 0;
+
+    // Accumulate by channel
+    if (channels[channel]) {
+      channels[channel] += amount;
+    } else {
+      channels[channel] = amount;
+    }
+  }
+
+  return channels;
 }
 
 const PAYMENT_MODE_KEYWORDS = {

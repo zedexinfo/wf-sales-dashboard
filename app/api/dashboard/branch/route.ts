@@ -6,10 +6,15 @@ import {
 import type { Sale } from "@/src/services/salesPage.service";
 import { getAllSales } from "@/src/services/salesPage.service";
 import { getSalesSummary } from "@/src/services/salesSummary.service";
+import { 
+  computePaymentAnalytics,
+  computeChannelAnalytics 
+} from "@/src/services/paymentAnalytics.service";
 import {
   DashboardData,
   DashboardPeriod,
   PaymentAnalytics,
+  ChannelAnalytics,
   SalesSummary,
 } from "@/src/types/dashboard";
 import { NextRequest, NextResponse } from "next/server";
@@ -30,6 +35,8 @@ const ZERO_SUMMARY: SalesSummary = {
 };
 
 const ZERO_PAYMENTS: PaymentAnalytics = {};
+
+const ZERO_CHANNELS: ChannelAnalytics = {};
 
 const MAX_RANGE_DAYS = 366;
 const SALES_FETCH_CONCURRENCY = 4;
@@ -180,7 +187,6 @@ async function aggregateRangeData(
   branch: string,
   dateRange: string[],
   summary: SalesSummary,
-  payments: PaymentAnalytics,
   salesBucket: Sale[]
 ) {
   let cursor = 0;
@@ -199,7 +205,7 @@ async function aggregateRangeData(
       }
 
       const day = dateRange[currentIndex];
-      const [{ summary: daySummary, payments: dayPayments }, daySales] =
+      const [{ summary: daySummary }, daySales] =
         await Promise.all([
           getSalesSummary(branch, day),
           getAllSales(branch, day),
@@ -209,10 +215,6 @@ async function aggregateRangeData(
       summary.totalOrders += daySummary.totalOrders;
       summary.totalTax += daySummary.totalTax;
       summary.totalDiscount += daySummary.totalDiscount;
-
-      payments.cash += dayPayments.cash;
-      payments.card += dayPayments.card;
-      payments.upi += dayPayments.upi;
 
       salesBucket.push(...daySales);
     }
@@ -272,18 +274,18 @@ export async function GET(request: NextRequest) {
 
   try {
     const aggregatedSummary: SalesSummary = { ...ZERO_SUMMARY };
-    const aggregatedPayments: PaymentAnalytics = { ...ZERO_PAYMENTS };
     const aggregatedSales: Sale[] = [];
 
     await aggregateRangeData(
       branch,
       dateRange,
       aggregatedSummary,
-      aggregatedPayments,
       aggregatedSales
     );
 
-    aggregatedPayments.cashInflow = aggregatedPayments.cash;
+    // Compute payment and channel analytics from all sales
+    const aggregatedPayments = computePaymentAnalytics(aggregatedSales);
+    const aggregatedChannels = computeChannelAnalytics(aggregatedSales);
 
     const topItems = computeTopItems(aggregatedSales, 10);
     const bestSeller = topItems[0] ?? { name: "N/A", qty: 0, revenue: 0 };
@@ -291,6 +293,7 @@ export async function GET(request: NextRequest) {
     const dashboardData: DashboardData = {
       summary: aggregatedSummary,
       payments: aggregatedPayments,
+      channels: aggregatedChannels,
       ordersByHour: computeOrdersByHour(aggregatedSales),
       ordersByWeekday: computeOrdersByWeekday(aggregatedSales),
       topItem: { name: bestSeller.name, qty: bestSeller.qty },
