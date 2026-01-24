@@ -11,15 +11,7 @@ const EMPTY_SUMMARY: SalesSummary = {
   totalDiscount: 0,
 };
 
-const EMPTY_PAYMENTS: PaymentAnalytics = {
-  cash: 0,
-  card: 0,
-  upi: 0,
-  cashInflow: 0,
-  zomato: 0,
-  swiggy: 0,
-  other: 0,
-};
+const EMPTY_PAYMENTS: PaymentAnalytics = {};
 
 export interface SalesSummaryResult {
   summary: SalesSummary;

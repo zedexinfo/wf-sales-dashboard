@@ -290,31 +290,46 @@ export default function DashboardPage() {
     [data?.ordersByWeekday]
   );
 
-  const paymentData = [
-    { name: 'Cash', value: data?.payments.cash || 0 },
-    { name: 'UPI', value: data?.payments.upi || 0 },
-    { name: 'Card', value: data?.payments.card || 0 },
-    ...(data?.payments.zomato ? [{ name: 'Zomato', value: data.payments.zomato }] : []),
-    ...(data?.payments.swiggy ? [{ name: 'Swiggy', value: data.payments.swiggy }] : []),
-    ...(data?.payments.other ? [{ name: 'Other Platforms', value: data.payments.other }] : []),
-  ].filter(p => p.value > 0);
+  // Payment Methods - Show all payment modes dynamically
+  const paymentData = useMemo(() => {
+    if (!data?.payments) return [];
+    return Object.entries(data.payments)
+      .map(([name, value]) => ({ name, value }))
+      .filter(p => p.value > 0)
+      .sort((a, b) => b.value - a.value); // Sort by value descending
+  }, [data?.payments]);
 
-  // Payment type data (Cash, UPI, Card)
-  const paymentTypeData = [
-    { name: 'Cash', value: data?.payments.cash || 0 },
-    { name: 'UPI', value: data?.payments.upi || 0 },
-    { name: 'Card', value: data?.payments.card || 0 },
-  ].filter(p => p.value > 0);
+  // Payment type data (Cash, UPI, Card) - for Metrics tab
+  const paymentTypeData = useMemo(() => {
+    if (!data?.payments) return [];
+    const paymentTypes = ['Cash', 'UPI', 'Card', 'cash', 'upi', 'card'];
+    return Object.entries(data.payments)
+      .filter(([name]) => paymentTypes.includes(name))
+      .map(([name, value]) => ({ name, value }))
+      .filter(p => p.value > 0);
+  }, [data?.payments]);
 
-  // Payment platform data (Zomato, Swiggy, Dine-in, Other)
-  const dineInPayments = (data?.payments.cash || 0) + (data?.payments.upi || 0) + (data?.payments.card || 0);
-  
-  const paymentPlatformData = [
-    ...(data?.payments.zomato ? [{ name: 'Zomato', value: data.payments.zomato }] : []),
-    ...(data?.payments.swiggy ? [{ name: 'Swiggy', value: data.payments.swiggy }] : []),
-    ...(dineInPayments > 0 ? [{ name: 'Dine-in', value: dineInPayments }] : []),
-    ...(data?.payments.other ? [{ name: 'Other Platforms', value: data.payments.other }] : []),
-  ].filter(p => p.value > 0);
+  // Platform data - for now same as payment data, but filtered for known platforms
+  const paymentPlatformData = useMemo(() => {
+    if (!data?.payments) return [];
+    // Known platforms from branch channels
+    const platforms = ['Zomato', 'Swiggy', 'DotPe', 'Magicpin', 'zomato', 'swiggy', 'dotpe', 'magicpin'];
+    const platformData = Object.entries(data.payments)
+      .filter(([name]) => platforms.some(p => name.toLowerCase().includes(p.toLowerCase())))
+      .map(([name, value]) => ({ name, value }))
+      .filter(p => p.value > 0);
+    
+    // Calculate dine-in from payment types (Cash, UPI, Card)
+    const dineInAmount = Object.entries(data.payments)
+      .filter(([name]) => ['Cash', 'UPI', 'Card', 'cash', 'upi', 'card'].includes(name))
+      .reduce((sum, [, value]) => sum + value, 0);
+    
+    if (dineInAmount > 0) {
+      platformData.push({ name: 'Dine-in', value: dineInAmount });
+    }
+    
+    return platformData.sort((a, b) => b.value - a.value);
+  }, [data?.payments]);
 
   const peakHour = hourlyPerformance.reduce(
     (acc, point) => (point.orders > acc.orders ? point : acc),

@@ -88,15 +88,7 @@ const PAYMENT_MODE_KEYWORDS = {
   upi: ["upi", "paytm", "phonepe", "gpay", "google", "bharatpe", "tez"],
 };
 
-const ZERO_PAYMENT_ANALYTICS: PaymentAnalytics = {
-  cash: 0,
-  upi: 0,
-  card: 0,
-  cashInflow: 0,
-  zomato: 0,
-  swiggy: 0,
-  other: 0,
-};
+const ZERO_PAYMENT_ANALYTICS: PaymentAnalytics = {};
 
 function categorizeSummaryPayment(mode?: string) {
   if (!mode) {
@@ -122,7 +114,7 @@ function categorizeSummaryPayment(mode?: string) {
 
 /**
  * Convert aggregated payment summary from analytics API to PaymentAnalytics shape.
- * Handles both payment types (Cash, UPI, Card) and platforms (Zomato, Swiggy, etc.)
+ * Simply returns all payment modes as-is without categorization.
  */
 export function computePaymentAnalyticsFromSummary(
   payments?: SalesSummaryPaymentsItem[]
@@ -131,61 +123,19 @@ export function computePaymentAnalyticsFromSummary(
     return { ...ZERO_PAYMENT_ANALYTICS };
   }
 
-  let cash = 0;
-  let upi = 0;
-  let card = 0;
-  let zomato = 0;
-  let swiggy = 0;
-  let other = 0;
-
-  // Platform keywords for categorization
-  const platformKeywords = {
-    zomato: ["zomato"],
-    swiggy: ["swiggy"],
-    otherPlatforms: ["dotpe", "magicpin", "dunzo", "uber", "deliveroo", "foodpanda"],
-  };
+  const result: PaymentAnalytics = {};
 
   for (const payment of payments) {
     const amount = payment.amount || 0;
-    const mode = (payment.mode || "").toLowerCase();
+    const mode = payment.mode || "Unknown";
 
-    // Check if this is a platform payment
-    const isZomato = platformKeywords.zomato.some(keyword => mode.includes(keyword));
-    const isSwiggy = platformKeywords.swiggy.some(keyword => mode.includes(keyword));
-    const isOtherPlatform = platformKeywords.otherPlatforms.some(keyword => mode.includes(keyword));
-
-    // Categorize by platform
-    if (isZomato) {
-      zomato += amount;
-    } else if (isSwiggy) {
-      swiggy += amount;
-    } else if (isOtherPlatform) {
-      other += amount;
-    }
-
-    // Categorize by payment type (Cash, UPI, Card)
-    // Skip platform names when categorizing payment types
-    if (!isZomato && !isSwiggy && !isOtherPlatform) {
-      if (mode.includes("cash")) {
-        cash += amount;
-      } else if (PAYMENT_MODE_KEYWORDS.upi.some(keyword => mode.includes(keyword))) {
-        upi += amount;
-      } else if (mode.includes("card") || mode.includes("credit") || mode.includes("debit")) {
-        card += amount;
-      } else {
-        // Default unknown payment types to card
-        card += amount;
-      }
+    // Add or accumulate the amount for this payment mode
+    if (result[mode]) {
+      result[mode] += amount;
+    } else {
+      result[mode] = amount;
     }
   }
 
-  return {
-    cash,
-    upi,
-    card,
-    cashInflow: cash,
-    zomato,
-    swiggy,
-    other,
-  };
+  return result;
 }
