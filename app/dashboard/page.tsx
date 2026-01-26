@@ -1015,6 +1015,245 @@ export default function DashboardPage() {
                 </BarChart>
               </ResponsiveContainer>
             </div>
+
+            {/* Performance Insights */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Performance Insights</h4>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                {(() => {
+                  // Find highest and lowest performers by revenue
+                  const sortedByRevenue = [...comparisonData].sort((a, b) => 
+                    b.data.summary.totalSales - a.data.summary.totalSales
+                  );
+                  const highestRevenue = sortedByRevenue[0];
+                  const lowestRevenue = sortedByRevenue[sortedByRevenue.length - 1];
+                  
+                  // Find highest and lowest performers by orders
+                  const sortedByOrders = [...comparisonData].sort((a, b) => 
+                    b.data.summary.totalOrders - a.data.summary.totalOrders
+                  );
+                  const highestOrders = sortedByOrders[0];
+                  const lowestOrders = sortedByOrders[sortedByOrders.length - 1];
+
+                  return (
+                    <>
+                      <div className="rounded-2xl bg-gradient-to-br from-green-50 to-emerald-50 p-4 border border-green-200">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-green-700 mb-2">
+                          🏆 Highest Revenue
+                        </p>
+                        <p className="text-xl font-bold text-green-900">
+                          {highestRevenue.branchName}
+                        </p>
+                        <p className="text-sm text-green-700 mt-1">
+                          {currencyFormatter.format(highestRevenue.data.summary.totalSales)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-gradient-to-br from-red-50 to-rose-50 p-4 border border-red-200">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-red-700 mb-2">
+                          📉 Lowest Revenue
+                        </p>
+                        <p className="text-xl font-bold text-red-900">
+                          {lowestRevenue.branchName}
+                        </p>
+                        <p className="text-sm text-red-700 mt-1">
+                          {currencyFormatter.format(lowestRevenue.data.summary.totalSales)}
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-gradient-to-br from-blue-50 to-indigo-50 p-4 border border-blue-200">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-2">
+                          🥇 Most Orders
+                        </p>
+                        <p className="text-xl font-bold text-blue-900">
+                          {highestOrders.branchName}
+                        </p>
+                        <p className="text-sm text-blue-700 mt-1">
+                          {highestOrders.data.summary.totalOrders.toLocaleString()} orders
+                        </p>
+                      </div>
+
+                      <div className="rounded-2xl bg-gradient-to-br from-orange-50 to-amber-50 p-4 border border-orange-200">
+                        <p className="text-xs font-semibold uppercase tracking-wide text-orange-700 mb-2">
+                          📊 Least Orders
+                        </p>
+                        <p className="text-xl font-bold text-orange-900">
+                          {lowestOrders.branchName}
+                        </p>
+                        <p className="text-sm text-orange-700 mt-1">
+                          {lowestOrders.data.summary.totalOrders.toLocaleString()} orders
+                        </p>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+
+            {/* Top Selling Products Comparison */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Products by Branch</h4>
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
+                {comparisonData.map((branchData) => (
+                  <div key={branchData.branchId} className="rounded-2xl bg-gray-50 p-4 border border-gray-200">
+                    <h5 className="font-semibold text-gray-900 mb-3">{branchData.branchName}</h5>
+                    <div className="space-y-2">
+                      {branchData.data.topItems.slice(0, 5).map((item, idx) => (
+                        <div key={idx} className="flex items-center justify-between text-sm">
+                          <div className="flex items-center gap-2">
+                            <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
+                              {idx + 1}
+                            </span>
+                            <span className="text-gray-900 font-medium truncate">{item.name}</span>
+                          </div>
+                          <span className="text-gray-600 ml-2 flex-shrink-0">{item.qty} units</span>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+
+            {/* Peak Hours Analysis */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Peak Hours Comparison</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <LineChart
+                  data={(() => {
+                    // Create combined data for all branches by hour
+                    const hours = Array.from({ length: 24 }, (_, i) => i);
+                    return hours.map(hour => {
+                      const dataPoint: Record<string, string | number> = { hour: `${hour}:00` };
+                      comparisonData.forEach(bd => {
+                        dataPoint[bd.branchName] = bd.data.ordersByHour[hour] || 0;
+                      });
+                      return dataPoint;
+                    });
+                  })()}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="hour" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.96)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Legend />
+                  {comparisonData.map((branchData, idx) => {
+                    const colors = ['#7C3AED', '#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                    return (
+                      <Line
+                        key={branchData.branchId}
+                        type="monotone"
+                        dataKey={branchData.branchName}
+                        stroke={colors[idx % colors.length]}
+                        strokeWidth={2}
+                        dot={{ r: 3 }}
+                      />
+                    );
+                  })}
+                </LineChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Peak Days Analysis */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Peak Days Comparison</h4>
+              <ResponsiveContainer width="100%" height={300}>
+                <BarChart
+                  data={(() => {
+                    // Create combined data for all branches by weekday
+                    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    return weekdays.map((day, dayIdx) => {
+                      const dataPoint: Record<string, string | number> = { day };
+                      comparisonData.forEach(bd => {
+                        dataPoint[bd.branchName] = bd.data.ordersByWeekday[dayIdx] || 0;
+                      });
+                      return dataPoint;
+                    });
+                  })()}
+                  margin={{ top: 20, right: 30, left: 20, bottom: 5 }}
+                >
+                  <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                  <XAxis dataKey="day" stroke="#6b7280" />
+                  <YAxis stroke="#6b7280" />
+                  <Tooltip
+                    contentStyle={{
+                      backgroundColor: "rgba(255, 255, 255, 0.96)",
+                      border: "1px solid #e5e7eb",
+                      borderRadius: "8px",
+                    }}
+                  />
+                  <Legend />
+                  {comparisonData.map((branchData, idx) => {
+                    const colors = ['#7C3AED', '#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                    return (
+                      <Bar
+                        key={branchData.branchId}
+                        dataKey={branchData.branchName}
+                        fill={colors[idx % colors.length]}
+                        radius={[4, 4, 0, 0]}
+                      />
+                    );
+                  })}
+                </BarChart>
+              </ResponsiveContainer>
+            </div>
+
+            {/* Platform/Channel Comparison */}
+            <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">Platform-wise Sales Comparison</h4>
+              <div className="space-y-6">
+                {(() => {
+                  // Collect all unique channels across all branches
+                  const allChannels = new Set<string>();
+                  comparisonData.forEach(bd => {
+                    Object.keys(bd.data.channels).forEach(channel => allChannels.add(channel));
+                  });
+
+                  // Create data for each channel
+                  return Array.from(allChannels).map(channel => {
+                    const channelData = comparisonData.map(bd => ({
+                      name: bd.branchName,
+                      value: bd.data.channels[channel] || 0,
+                    })).filter(d => d.value > 0);
+
+                    if (channelData.length === 0) return null;
+
+                    return (
+                      <div key={channel} className="border-b border-gray-200 pb-4 last:border-b-0">
+                        <h5 className="font-semibold text-gray-900 mb-3">{channel}</h5>
+                        <ResponsiveContainer width="100%" height={150}>
+                          <BarChart
+                            data={channelData}
+                            layout="vertical"
+                            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
+                          >
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+                            <XAxis type="number" stroke="#6b7280" />
+                            <YAxis dataKey="name" type="category" stroke="#6b7280" width={90} />
+                            <Tooltip
+                              formatter={(value: number) => currencyFormatter.format(value)}
+                              contentStyle={{
+                                backgroundColor: "rgba(255, 255, 255, 0.96)",
+                                border: "1px solid #e5e7eb",
+                                borderRadius: "8px",
+                              }}
+                            />
+                            <Bar dataKey="value" fill="#10B981" radius={[0, 4, 4, 0]} />
+                          </BarChart>
+                        </ResponsiveContainer>
+                      </div>
+                    );
+                  }).filter(Boolean);
+                })()}
+              </div>
+            </div>
           </section>
         )}
 
