@@ -16,6 +16,8 @@ The system securely fetches, aggregates, and visualizes branch-wise sales data.
 - **Payment Breakdown**: Categorized by Cash, UPI, and Card
 - **Item Analytics**: Bestselling items tracking
 - **Multi-branch Support**: Switch between branches dynamically
+- **Branch Comparison**: Compare sales data across multiple branches side-by-side
+- **API Caching**: In-memory caching for faster data retrieval and reduced API calls
 
 ---
 
@@ -181,6 +183,9 @@ src/
 Query Parameters:
 - `branch` (required): Branch ID (e.g., BR001)
 - `date` (required): Date in YYYY-MM-DD format
+- `period` (optional): Day, Week, Month, Year, or Custom
+- `startDate` (optional): Start date for custom range
+- `endDate` (optional): End date for custom range
 
 Response:
 ```json
@@ -202,6 +207,48 @@ Response:
   "topItem": {
     "name": "Belgian Waffle",
     "qty": 45
+  }
+}
+```
+
+### Branch Comparison API
+
+**GET** `/api/dashboard/compare`
+
+Query Parameters:
+- `branches` (required): Comma-separated branch IDs (e.g., BR001,BR002,BR003)
+- `startDate` (required): Start date in YYYY-MM-DD format
+- `endDate` (required): End date in YYYY-MM-DD format
+
+Validation:
+- Minimum 1 branch, maximum 10 branches
+- Date range must be 1-7 days (maximum 1 week)
+
+Response:
+```json
+{
+  "comparison": [
+    {
+      "branchId": "BR001",
+      "data": {
+        "summary": { ... },
+        "payments": { ... },
+        "channels": { ... },
+        "ordersByHour": [...],
+        "ordersByWeekday": [...],
+        "topItem": { ... },
+        "topItems": [...]
+      }
+    },
+    {
+      "branchId": "BR002",
+      "data": { ... }
+    }
+  ],
+  "dateRange": {
+    "start": "2024-01-20",
+    "end": "2024-01-26",
+    "days": 7
   }
 }
 ```
@@ -255,8 +302,19 @@ Users are stored in MongoDB with the following structure:
    - **Overview Tab**: KPI cards, weekly performance, payment breakdown
    - **Metrics Tab**: Hourly revenue trends and order analytics
    - **Highlights Tab**: Top sellers and performance highlights
-7. **Disabled States**: All filters disabled during data loading to prevent race conditions
-8. **Responsive Layout**: Optimized width with reduced side padding for better space utilization
+7. **Branch Comparison Mode**: 
+   - Toggle to comparison mode with "Compare Branches" button
+   - Multi-select branches with checkboxes
+   - "Select All" / "Deselect All" option
+   - Date range picker (1 day to 1 week)
+   - Visual comparison with tables and charts
+   - Revenue and orders comparison visualizations
+8. **API Caching**: 
+   - Automatic caching of API responses (5-minute TTL)
+   - Faster data retrieval for repeated queries
+   - Reduced API load and improved performance
+9. **Disabled States**: All filters disabled during data loading to prevent race conditions
+10. **Responsive Layout**: Optimized width with reduced side padding for better space utilization
 
 ---
 

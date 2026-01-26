@@ -42,6 +42,12 @@ export interface DashboardData {
   topItems: TopItemDetail[];
 }
 
+export interface BranchComparisonData {
+  branchId: string;
+  branchName: string;
+  data: DashboardData;
+}
+
 export interface DashboardState {
   branch: string;
   date: string;
@@ -50,4 +56,10 @@ export interface DashboardState {
   branchesLoading: boolean;
   loading: boolean;
   error: string | null;
+  // Comparison mode
+  comparisonMode: boolean;
+  selectedBranches: string[];
+  comparisonData: BranchComparisonData[] | null;
+  comparisonLoading: boolean;
+  comparisonError: string | null;
 }
