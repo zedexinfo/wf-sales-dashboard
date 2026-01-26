@@ -1093,6 +1093,64 @@ export default function DashboardPage() {
             {/* Top Selling Products Comparison */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
               <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Products by Branch</h4>
+              
+              {/* Summary Section */}
+              <div className="mb-6 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 p-4 border border-purple-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-purple-700 mb-2">
+                  📊 Overall Summary
+                </p>
+                {(() => {
+                  // Aggregate products across all branches
+                  const productMap = new Map<string, number>();
+                  comparisonData.forEach(bd => {
+                    bd.data.topItems.forEach(item => {
+                      const current = productMap.get(item.name) || 0;
+                      productMap.set(item.name, current + item.qty);
+                    });
+                  });
+                  
+                  // Sort by total quantity
+                  const topProducts = Array.from(productMap.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3);
+                  
+                  // Count how many branches sell each product
+                  const productBranchCount = new Map<string, number>();
+                  comparisonData.forEach(bd => {
+                    const productNames = new Set(bd.data.topItems.map(item => item.name));
+                    productNames.forEach(name => {
+                      const count = productBranchCount.get(name) || 0;
+                      productBranchCount.set(name, count + 1);
+                    });
+                  });
+                  
+                  return (
+                    <div className="space-y-2">
+                      <p className="text-sm font-medium text-purple-900">
+                        Top products across all branches:
+                      </p>
+                      {topProducts.map(([name, qty], idx) => {
+                        const branchCount = productBranchCount.get(name) || 0;
+                        return (
+                          <div key={name} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-purple-700 font-semibold">{idx + 1}.</span>
+                              <span className="text-purple-900 font-medium">{name}</span>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <span className="text-purple-700">{qty.toLocaleString()} total units</span>
+                              <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
+                                {branchCount}/{comparisonData.length} branches
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {comparisonData.map((branchData) => (
                   <div key={branchData.branchId} className="rounded-2xl bg-gray-50 p-4 border border-gray-200">
@@ -1118,6 +1176,45 @@ export default function DashboardPage() {
             {/* Peak Hours Analysis */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
               <h4 className="text-lg font-semibold text-gray-900 mb-4">Peak Hours Comparison</h4>
+              
+              {/* Summary Section */}
+              <div className="mb-6 rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 p-4 border border-blue-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-2">
+                  ⏰ Peak Hours Summary
+                </p>
+                {(() => {
+                  // Find peak hour for each branch
+                  const branchPeaks = comparisonData.map(bd => {
+                    const maxOrders = Math.max(...bd.data.ordersByHour);
+                    const peakHour = bd.data.ordersByHour.indexOf(maxOrders);
+                    return { branch: bd.branchName, hour: peakHour, orders: maxOrders };
+                  }).sort((a, b) => b.orders - a.orders);
+                  
+                  // Find overall peak hour across all branches
+                  const hourlyTotals = Array.from({ length: 24 }, (_, hour) => ({
+                    hour,
+                    total: comparisonData.reduce((sum, bd) => sum + (bd.data.ordersByHour[hour] || 0), 0)
+                  }));
+                  const overallPeak = hourlyTotals.reduce((max, curr) => curr.total > max.total ? curr : max);
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-blue-900">
+                          Busiest hour overall: {overallPeak.hour}:00 - {overallPeak.hour + 1}:00
+                        </span>
+                        <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
+                          {overallPeak.total} total orders
+                        </span>
+                      </div>
+                      <div className="text-sm text-blue-800">
+                        Branch peaks: {branchPeaks.slice(0, 2).map(p => `${p.branch} (${p.hour}:00)`).join(', ')}
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <ResponsiveContainer width="100%" height={300}>
                 <LineChart
                   data={(() => {
@@ -1164,6 +1261,47 @@ export default function DashboardPage() {
             {/* Peak Days Analysis */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
               <h4 className="text-lg font-semibold text-gray-900 mb-4">Peak Days Comparison</h4>
+              
+              {/* Summary Section */}
+              <div className="mb-6 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 p-4 border border-green-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-green-700 mb-2">
+                  📅 Peak Days Summary
+                </p>
+                {(() => {
+                  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+                  
+                  // Calculate total orders per day across all branches
+                  const dayTotals = Array.from({ length: 7 }, (_, dayIdx) => ({
+                    day: weekdays[dayIdx],
+                    total: comparisonData.reduce((sum, bd) => sum + (bd.data.ordersByWeekday[dayIdx] || 0), 0)
+                  }));
+                  
+                  const peakDay = dayTotals.reduce((max, curr) => curr.total > max.total ? curr : max);
+                  const slowestDay = dayTotals.reduce((min, curr) => curr.total < min.total ? curr : min);
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-green-900">
+                          Busiest day: {peakDay.day}
+                        </span>
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          {peakDay.total} total orders
+                        </span>
+                      </div>
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-green-900">
+                          Slowest day: {slowestDay.day}
+                        </span>
+                        <span className="text-xs bg-green-100 text-green-800 px-2 py-1 rounded-full">
+                          {slowestDay.total} total orders
+                        </span>
+                      </div>
+                    </div>
+                  );
+                })()}
+              </div>
+
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
                   data={(() => {
@@ -1208,6 +1346,61 @@ export default function DashboardPage() {
             {/* Platform/Channel Comparison */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
               <h4 className="text-lg font-semibold text-gray-900 mb-4">Platform-wise Sales Comparison</h4>
+              
+              {/* Summary Section */}
+              <div className="mb-6 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 border border-amber-200">
+                <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">
+                  🏪 Platform Summary
+                </p>
+                {(() => {
+                  // Collect all unique channels and calculate totals
+                  const channelTotals = new Map<string, number>();
+                  comparisonData.forEach(bd => {
+                    Object.entries(bd.data.channels).forEach(([channel, value]) => {
+                      const current = channelTotals.get(channel) || 0;
+                      channelTotals.set(channel, current + value);
+                    });
+                  });
+                  
+                  // Sort by total revenue
+                  const topChannels = Array.from(channelTotals.entries())
+                    .sort((a, b) => b[1] - a[1])
+                    .slice(0, 3);
+                  
+                  const totalRevenue = Array.from(channelTotals.values()).reduce((sum, val) => sum + val, 0);
+                  
+                  return (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between mb-2">
+                        <span className="text-sm font-medium text-amber-900">
+                          Top performing platforms:
+                        </span>
+                        <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                          Total: {currencyFormatter.format(totalRevenue)}
+                        </span>
+                      </div>
+                      {topChannels.map(([channel, revenue], idx) => {
+                        const percentage = ((revenue / totalRevenue) * 100).toFixed(1);
+                        return (
+                          <div key={channel} className="flex items-center justify-between text-sm">
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-700 font-semibold">{idx + 1}.</span>
+                              <span className="text-amber-900 font-medium">{channel}</span>
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <span className="text-amber-700">{currencyFormatter.format(revenue)}</span>
+                              <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
+                                {percentage}%
+                              </span>
+                            </div>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  );
+                })()}
+              </div>
+
               <div className="space-y-6">
                 {(() => {
                   // Collect all unique channels across all branches
