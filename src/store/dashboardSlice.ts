@@ -7,10 +7,19 @@ import {
   DashboardState,
 } from "../types/dashboard";
 
+// Helper function to get today's date in user's local timezone
+function getTodayLocalDate(): string {
+  const now = new Date();
+  const year = now.getFullYear();
+  const month = String(now.getMonth() + 1).padStart(2, '0');
+  const day = String(now.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+}
+
 // Initial state
 const initialState: DashboardState = {
   branch: "",
-  date: new Date().toISOString().split("T")[0], // Today's date
+  date: getTodayLocalDate(), // Today's date in user's local timezone
   data: null,
   branches: [],
   branchesLoading: false,
