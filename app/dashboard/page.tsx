@@ -511,7 +511,7 @@ export default function DashboardPage() {
   );
 
   const handleLogout = async () => {
-    await signOut({ redirect: true, callbackUrl: window.location.origin });
+    await signOut({ redirect: true, callbackUrl: "/" });
   };
 
   if (status === "loading") {

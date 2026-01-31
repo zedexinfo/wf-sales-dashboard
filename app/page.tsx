@@ -23,10 +23,8 @@ const FEATURES = [
 
 export default function Home() {
   const router = useRouter();
-  const [isLogin, setIsLogin] = useState(true);
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
-  const [name, setName] = useState('');
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -36,45 +34,17 @@ export default function Home() {
     setLoading(true);
 
     try {
-      if (isLogin) {
-        // Login
-        const result = await signIn('credentials', {
-          email,
-          password,
-          redirect: false,
-        });
+      // Login
+      const result = await signIn('credentials', {
+        email,
+        password,
+        redirect: false,
+      });
 
-        if (result?.error) {
-          setError(result.error);
-        } else if (result?.ok) {
-          router.push('/dashboard');
-        }
-      } else {
-        // Signup
-        const response = await fetch('/api/auth/signup', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ email, password, name }),
-        });
-
-        const data = await response.json();
-
-        if (!response.ok) {
-          setError(data.error || 'Signup failed');
-        } else {
-          // Auto-login after signup
-          const result = await signIn('credentials', {
-            email,
-            password,
-            redirect: false,
-          });
-
-          if (result?.ok) {
-            router.push('/dashboard');
-          }
-        }
+      if (result?.error) {
+        setError(result.error);
+      } else if (result?.ok) {
+        router.push('/dashboard');
       }
     } catch {
       setError('An unexpected error occurred');
@@ -120,12 +90,10 @@ export default function Home() {
         <section className="bg-white rounded-3xl shadow-2xl p-8 text-gray-900">
           <div className="space-y-2 mb-8 text-center">
             <h2 className="text-3xl font-semibold text-gray-900">
-              {isLogin ? 'Welcome Back' : 'Create Account'}
+              Welcome Back
             </h2>
             <p className="text-gray-500">
-              {isLogin
-                ? 'Enter your credentials to access the dashboard.'
-                : 'Sign up to get started with the dashboard.'}
+              Enter your credentials to access the dashboard.
             </p>
           </div>
           {error && (
@@ -134,25 +102,6 @@ export default function Home() {
             </div>
           )}
           <form onSubmit={handleSubmit} className="space-y-4">
-            {!isLogin && (
-              <div>
-                <label htmlFor="name" className="text-sm font-medium text-gray-700 mb-2 block">
-                  Full Name
-                </label>
-                <div className="flex items-center gap-3 rounded-2xl border border-gray-200 bg-gray-50 px-4">
-                  <span className="text-gray-400">👤</span>
-                  <input
-                    id="name"
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    placeholder="John Doe"
-                    required={!isLogin}
-                    className="flex-1 bg-transparent py-3 text-sm text-gray-800 placeholder:text-gray-400 focus:outline-none"
-                  />
-                </div>
-              </div>
-            )}
             <div>
               <label htmlFor="email" className="text-sm font-medium text-gray-700 mb-2 block">
                 Email
@@ -192,22 +141,9 @@ export default function Home() {
               disabled={loading}
               className="inline-flex w-full items-center justify-center rounded-2xl bg-gradient-to-r from-[#A855F7] via-[#7C3AED] to-[#2563EB] py-3 font-semibold text-white shadow-lg shadow-purple-500/30 transition-transform hover:-translate-y-0.5 disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {loading ? 'Please wait...' : isLogin ? 'Sign In' : 'Sign Up'}
+              {loading ? 'Please wait...' : 'Sign In'}
             </button>
           </form>
-          <div className="mt-6 text-center">
-            <button
-              onClick={() => {
-                setIsLogin(!isLogin);
-                setError('');
-              }}
-              className="text-sm text-indigo-600 hover:text-indigo-700 font-medium"
-            >
-              {isLogin
-                ? "Don't have an account? Sign up"
-                : 'Already have an account? Sign in'}
-            </button>
-          </div>
         </section>
       </div>
     </div>
