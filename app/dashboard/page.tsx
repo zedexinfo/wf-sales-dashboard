@@ -1,12 +1,12 @@
 "use client";
 
 import {
-  fetchBranches,
   fetchBranchComparison,
+  fetchBranches,
   fetchDashboardData,
   setBranch,
-  setDate,
   setComparisonMode,
+  setDate,
   setSelectedBranches,
   toggleBranchSelection,
 } from "@/src/store/dashboardSlice";
@@ -176,13 +176,13 @@ export default function DashboardPage() {
   const { data: session, status } = useSession();
   const router = useRouter();
   const dispatch = useAppDispatch();
-  const { 
-    branch, 
-    date, 
-    data, 
-    branches, 
-    branchesLoading, 
-    loading, 
+  const {
+    branch,
+    date,
+    data,
+    branches,
+    branchesLoading,
+    loading,
     error,
     comparisonMode,
     selectedBranches,
@@ -206,10 +206,17 @@ export default function DashboardPage() {
     end: date,
   }));
   const [activeTab, setActiveTab] = useState<
-    "overview" | "metrics" | "highlights"
+    "overview" | "metrics" | "highlights" | "export"
   >("overview");
   const [filtersCollapsed, setFiltersCollapsed] = useState(false);
   const [useLocalTime, setUseLocalTime] = useState(true);
+  const [exportMonths, setExportMonths] = useState<string[]>(() => {
+    const prev = new Date();
+    prev.setMonth(prev.getMonth() - 1);
+    return [`${prev.getFullYear()}-${String(prev.getMonth() + 1).padStart(2, "0")}`];
+  });
+  const [exportBranchIds, setExportBranchIds] = useState<string[]>([]);
+  const [exportLoading, setExportLoading] = useState(false);
 
   useEffect(() => {
     if (status === "unauthenticated") {
@@ -231,11 +238,17 @@ export default function DashboardPage() {
     // Check if range is within 1-7 days (inclusive)
     const start = new Date(comparisonRange.start);
     const end = new Date(comparisonRange.end);
-    const daysDiff = Math.ceil((end.getTime() - start.getTime()) / MILLISECONDS_PER_DAY);
+    const daysDiff = Math.ceil(
+      (end.getTime() - start.getTime()) / MILLISECONDS_PER_DAY,
+    );
     // daysDiff represents the difference, add 1 for inclusive count
     // e.g., Jan 1 to Jan 1 = 0 diff = 1 day, Jan 1 to Jan 7 = 6 diff = 7 days
     const daysInRange = daysDiff + 1;
-    return comparisonRange.start <= comparisonRange.end && daysInRange >= 1 && daysInRange <= 7;
+    return (
+      comparisonRange.start <= comparisonRange.end &&
+      daysInRange >= 1 &&
+      daysInRange <= 7
+    );
   }, [comparisonRange.start, comparisonRange.end]);
 
   const monthValue = useMemo(() => date.slice(0, 7), [date]);
@@ -258,7 +271,15 @@ export default function DashboardPage() {
     }
 
     dispatch(fetchDashboardData({ branch, date, period }));
-  }, [branch, comparisonMode, customRange, date, dispatch, isCustomRangeValid, period]);
+  }, [
+    branch,
+    comparisonMode,
+    customRange,
+    date,
+    dispatch,
+    isCustomRangeValid,
+    period,
+  ]);
 
   const handleBranchChange = (e: React.ChangeEvent<HTMLSelectElement>) => {
     dispatch(setBranch(e.target.value));
@@ -317,19 +338,27 @@ export default function DashboardPage() {
     if (selectedBranches.length === branches.length) {
       dispatch(setSelectedBranches([]));
     } else {
-      dispatch(setSelectedBranches(branches.map(b => b.id)));
+      dispatch(setSelectedBranches(branches.map((b) => b.id)));
     }
   };
 
   const handleCompareNow = () => {
-    if (selectedBranches.length === 0 || !isComparisonRangeValid || !branches || branches.length === 0) {
+    if (
+      selectedBranches.length === 0 ||
+      !isComparisonRangeValid ||
+      !branches ||
+      branches.length === 0
+    ) {
       return;
     }
 
-    const branchNames = branches.reduce((acc, b) => {
-      acc[b.id] = b.name;
-      return acc;
-    }, {} as Record<string, string>);
+    const branchNames = branches.reduce(
+      (acc, b) => {
+        acc[b.id] = b.name;
+        return acc;
+      },
+      {} as Record<string, string>,
+    );
 
     dispatch(
       fetchBranchComparison({
@@ -337,7 +366,7 @@ export default function DashboardPage() {
         startDate: comparisonRange.start,
         endDate: comparisonRange.end,
         branchNames,
-      })
+      }),
     );
   };
 
@@ -354,6 +383,47 @@ export default function DashboardPage() {
     }
 
     dispatch(fetchDashboardData({ branch, date, period }));
+  };
+
+  const handleExport = async () => {
+    const validMonths = [...exportMonths.filter(Boolean)].sort();
+    if (validMonths.length === 0) return;
+    const branchParam =
+      exportBranchIds.length > 0 ? `&branches=${exportBranchIds.join(",")}` : "";
+    setExportLoading(true);
+    try {
+      const csvParts = await Promise.all(
+        validMonths.map(async (period) => {
+          const [y, m] = period.split("-").map(Number);
+          const res = await fetch(
+            `/api/export/monthly?year=${y}&month=${m}${branchParam}`,
+          );
+          if (!res.ok) throw new Error(`Failed for ${period}`);
+          return res.text();
+        }),
+      );
+      // Combine: keep header from first response, strip header line from the rest
+      const header = csvParts[0].split("\n")[0] + "\n";
+      const dataRows = csvParts
+        .map((part) => part.split("\n").slice(1).join("\n"))
+        .join("");
+      const combined = header + dataRows;
+      const blob = new Blob([combined], { type: "text/csv;charset=utf-8;" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      const label =
+        validMonths.length === 1
+          ? validMonths[0]
+          : `${validMonths[0]}_to_${validMonths[validMonths.length - 1]}`;
+      a.download = `revenue-${label}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(`Export failed: ${err instanceof Error ? err.message : "Unknown error"}`);
+    } finally {
+      setExportLoading(false);
+    }
   };
 
   const averageOrderValue = data?.summary.totalOrders
@@ -637,11 +707,13 @@ export default function DashboardPage() {
                 </div>
               </div>
 
-              {!isComparisonRangeValid && comparisonRange.start && comparisonRange.end && (
-                <p className="text-sm text-red-600">
-                  Please select a valid date range (1 day to 1 week maximum).
-                </p>
-              )}
+              {!isComparisonRangeValid &&
+                comparisonRange.start &&
+                comparisonRange.end && (
+                  <p className="text-sm text-red-600">
+                    Please select a valid date range (1 day to 1 week maximum).
+                  </p>
+                )}
 
               {/* Branch Selection */}
               <div>
@@ -653,7 +725,9 @@ export default function DashboardPage() {
                     onClick={handleSelectAllBranches}
                     className="text-xs font-medium text-indigo-600 hover:text-indigo-700"
                   >
-                    {(selectedBranches.length === (branches?.length || 0)) ? "Deselect All" : "Select All"}
+                    {selectedBranches.length === (branches?.length || 0)
+                      ? "Deselect All"
+                      : "Select All"}
                   </button>
                 </div>
                 <div className="grid gap-2 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4">
@@ -680,7 +754,9 @@ export default function DashboardPage() {
                       </label>
                     ))
                   ) : (
-                    <p className="col-span-full text-sm text-gray-500">No branches available</p>
+                    <p className="col-span-full text-sm text-gray-500">
+                      No branches available
+                    </p>
                   )}
                 </div>
               </div>
@@ -834,24 +910,21 @@ export default function DashboardPage() {
                   {loading ? "Refreshing…" : "Refresh"}
                 </button>
               </div>
-            </div>
-          )}
 
-          {!filtersCollapsed && !comparisonMode && (
-            <div className="mt-6 flex flex-wrap items-center justify-between gap-4 text-sm text-gray-600">
-              <div>
+              <div className="flex flex-col">
                 <p className="text-xs uppercase tracking-[0.4em] text-gray-400">
                   Reporting Period
                 </p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="mt-1 text-lg font-semibold text-gray-900">
                   {friendlyDate}
                 </p>
               </div>
-              <div className="text-right">
+
+              <div className="flex flex-col items-end">
                 <p className="text-xs uppercase tracking-[0.4em] text-gray-400">
                   Branch
                 </p>
-                <p className="text-lg font-semibold text-gray-900">
+                <p className="mt-1 text-lg font-semibold text-gray-900">
                   {selectedBranchName}
                 </p>
               </div>
@@ -862,37 +935,47 @@ export default function DashboardPage() {
             <>
               {/* Tabs - Centered */}
               <div className="mt-6 flex justify-center gap-2 border-b border-gray-200">
-            <button
-              onClick={() => setActiveTab("overview")}
-              className={`px-6 py-3 text-sm font-semibold transition-colors ${
-                activeTab === "overview"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Overview
-            </button>
-            <button
-              onClick={() => setActiveTab("metrics")}
-              className={`px-6 py-3 text-sm font-semibold transition-colors ${
-                activeTab === "metrics"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Metrics
-            </button>
-            <button
-              onClick={() => setActiveTab("highlights")}
-              className={`px-6 py-3 text-sm font-semibold transition-colors ${
-                activeTab === "highlights"
-                  ? "border-b-2 border-indigo-600 text-indigo-600"
-                  : "text-gray-500 hover:text-gray-700"
-              }`}
-            >
-              Highlights
-            </button>
-          </div>
+                <button
+                  onClick={() => setActiveTab("overview")}
+                  className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === "overview"
+                      ? "border-b-2 border-indigo-600 text-indigo-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Overview
+                </button>
+                <button
+                  onClick={() => setActiveTab("metrics")}
+                  className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === "metrics"
+                      ? "border-b-2 border-indigo-600 text-indigo-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Metrics
+                </button>
+                <button
+                  onClick={() => setActiveTab("highlights")}
+                  className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === "highlights"
+                      ? "border-b-2 border-indigo-600 text-indigo-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Highlights
+                </button>
+                <button
+                  onClick={() => setActiveTab("export")}
+                  className={`px-6 py-3 text-sm font-semibold transition-colors ${
+                    activeTab === "export"
+                      ? "border-b-2 border-indigo-600 text-indigo-600"
+                      : "text-gray-500 hover:text-gray-700"
+                  }`}
+                >
+                  Export
+                </button>
+              </div>
             </>
           )}
         </section>
@@ -917,31 +1000,54 @@ export default function DashboardPage() {
             <h3 className="text-2xl font-bold text-gray-900">
               Branch Comparison Results
             </h3>
-            
+
             {/* Comparison Table */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5 overflow-x-auto">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Summary Comparison</h4>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Summary Comparison
+              </h4>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-gray-200">
-                    <th className="px-4 py-3 text-left font-semibold text-gray-700">Branch</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Total Revenue</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Total Orders</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Avg Order Value</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Tax Collected</th>
-                    <th className="px-4 py-3 text-right font-semibold text-gray-700">Discounts</th>
+                    <th className="px-4 py-3 text-left font-semibold text-gray-700">
+                      Branch
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                      Total Revenue
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                      Total Orders
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                      Avg Order Value
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                      Tax Collected
+                    </th>
+                    <th className="px-4 py-3 text-right font-semibold text-gray-700">
+                      Discounts
+                    </th>
                   </tr>
                 </thead>
                 <tbody>
                   {comparisonData.map((branchData, idx) => {
-                    const avgOrderValue = branchData.data.summary.totalOrders > 0
-                      ? branchData.data.summary.totalSales / branchData.data.summary.totalOrders
-                      : 0;
+                    const avgOrderValue =
+                      branchData.data.summary.totalOrders > 0
+                        ? branchData.data.summary.totalSales /
+                          branchData.data.summary.totalOrders
+                        : 0;
                     return (
-                      <tr key={branchData.branchId} className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}>
-                        <td className="px-4 py-3 font-medium text-gray-900">{branchData.branchName}</td>
+                      <tr
+                        key={branchData.branchId}
+                        className={idx % 2 === 0 ? "bg-gray-50" : "bg-white"}
+                      >
+                        <td className="px-4 py-3 font-medium text-gray-900">
+                          {branchData.branchName}
+                        </td>
                         <td className="px-4 py-3 text-right text-gray-700">
-                          {currencyFormatter.format(branchData.data.summary.totalSales)}
+                          {currencyFormatter.format(
+                            branchData.data.summary.totalSales,
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-700">
                           {branchData.data.summary.totalOrders.toLocaleString()}
@@ -950,10 +1056,14 @@ export default function DashboardPage() {
                           {currencyFormatter.format(avgOrderValue)}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-700">
-                          {currencyFormatter.format(branchData.data.summary.totalTax)}
+                          {currencyFormatter.format(
+                            branchData.data.summary.totalTax,
+                          )}
                         </td>
                         <td className="px-4 py-3 text-right text-gray-700">
-                          {currencyFormatter.format(branchData.data.summary.totalDiscount)}
+                          {currencyFormatter.format(
+                            branchData.data.summary.totalDiscount,
+                          )}
                         </td>
                       </tr>
                     );
@@ -964,10 +1074,12 @@ export default function DashboardPage() {
 
             {/* Revenue Comparison Chart */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Revenue Comparison</h4>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Revenue Comparison
+              </h4>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  data={comparisonData.map(bd => ({
+                  data={comparisonData.map((bd) => ({
                     name: bd.branchName,
                     revenue: bd.data.summary.totalSales,
                     orders: bd.data.summary.totalOrders,
@@ -978,7 +1090,9 @@ export default function DashboardPage() {
                   <XAxis dataKey="name" stroke="#6b7280" />
                   <YAxis stroke="#6b7280" />
                   <Tooltip
-                    formatter={(value: number) => currencyFormatter.format(value)}
+                    formatter={(value: number) =>
+                      currencyFormatter.format(value)
+                    }
                     contentStyle={{
                       backgroundColor: "rgba(255, 255, 255, 0.96)",
                       border: "1px solid #e5e7eb",
@@ -992,10 +1106,12 @@ export default function DashboardPage() {
 
             {/* Orders Comparison Chart */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Orders Comparison</h4>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Orders Comparison
+              </h4>
               <ResponsiveContainer width="100%" height={300}>
                 <BarChart
-                  data={comparisonData.map(bd => ({
+                  data={comparisonData.map((bd) => ({
                     name: bd.branchName,
                     orders: bd.data.summary.totalOrders,
                   }))}
@@ -1018,22 +1134,28 @@ export default function DashboardPage() {
 
             {/* Performance Insights */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Performance Insights</h4>
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Performance Insights
+              </h4>
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 {(() => {
                   // Find highest and lowest performers by revenue
-                  const sortedByRevenue = [...comparisonData].sort((a, b) => 
-                    b.data.summary.totalSales - a.data.summary.totalSales
+                  const sortedByRevenue = [...comparisonData].sort(
+                    (a, b) =>
+                      b.data.summary.totalSales - a.data.summary.totalSales,
                   );
                   const highestRevenue = sortedByRevenue[0];
-                  const lowestRevenue = sortedByRevenue[sortedByRevenue.length - 1];
-                  
+                  const lowestRevenue =
+                    sortedByRevenue[sortedByRevenue.length - 1];
+
                   // Find highest and lowest performers by orders
-                  const sortedByOrders = [...comparisonData].sort((a, b) => 
-                    b.data.summary.totalOrders - a.data.summary.totalOrders
+                  const sortedByOrders = [...comparisonData].sort(
+                    (a, b) =>
+                      b.data.summary.totalOrders - a.data.summary.totalOrders,
                   );
                   const highestOrders = sortedByOrders[0];
-                  const lowestOrders = sortedByOrders[sortedByOrders.length - 1];
+                  const lowestOrders =
+                    sortedByOrders[sortedByOrders.length - 1];
 
                   return (
                     <>
@@ -1045,7 +1167,9 @@ export default function DashboardPage() {
                           {highestRevenue.branchName}
                         </p>
                         <p className="text-sm text-green-700 mt-1">
-                          {currencyFormatter.format(highestRevenue.data.summary.totalSales)}
+                          {currencyFormatter.format(
+                            highestRevenue.data.summary.totalSales,
+                          )}
                         </p>
                       </div>
 
@@ -1057,7 +1181,9 @@ export default function DashboardPage() {
                           {lowestRevenue.branchName}
                         </p>
                         <p className="text-sm text-red-700 mt-1">
-                          {currencyFormatter.format(lowestRevenue.data.summary.totalSales)}
+                          {currencyFormatter.format(
+                            lowestRevenue.data.summary.totalSales,
+                          )}
                         </p>
                       </div>
 
@@ -1069,7 +1195,8 @@ export default function DashboardPage() {
                           {highestOrders.branchName}
                         </p>
                         <p className="text-sm text-blue-700 mt-1">
-                          {highestOrders.data.summary.totalOrders.toLocaleString()} orders
+                          {highestOrders.data.summary.totalOrders.toLocaleString()}{" "}
+                          orders
                         </p>
                       </div>
 
@@ -1081,7 +1208,8 @@ export default function DashboardPage() {
                           {lowestOrders.branchName}
                         </p>
                         <p className="text-sm text-orange-700 mt-1">
-                          {lowestOrders.data.summary.totalOrders.toLocaleString()} orders
+                          {lowestOrders.data.summary.totalOrders.toLocaleString()}{" "}
+                          orders
                         </p>
                       </div>
                     </>
@@ -1092,8 +1220,10 @@ export default function DashboardPage() {
 
             {/* Top Selling Products Comparison */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Top Selling Products by Branch</h4>
-              
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Top Selling Products by Branch
+              </h4>
+
               {/* Summary Section */}
               <div className="mb-6 rounded-2xl bg-gradient-to-r from-purple-50 to-indigo-50 p-4 border border-purple-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-purple-700 mb-2">
@@ -1102,28 +1232,30 @@ export default function DashboardPage() {
                 {(() => {
                   // Aggregate products across all branches
                   const productMap = new Map<string, number>();
-                  comparisonData.forEach(bd => {
-                    bd.data.topItems.forEach(item => {
+                  comparisonData.forEach((bd) => {
+                    bd.data.topItems.forEach((item) => {
                       const current = productMap.get(item.name) || 0;
                       productMap.set(item.name, current + item.qty);
                     });
                   });
-                  
+
                   // Sort by total quantity
                   const topProducts = Array.from(productMap.entries())
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 3);
-                  
+
                   // Count how many branches sell each product
                   const productBranchCount = new Map<string, number>();
-                  comparisonData.forEach(bd => {
-                    const productNames = new Set(bd.data.topItems.map(item => item.name));
-                    productNames.forEach(name => {
+                  comparisonData.forEach((bd) => {
+                    const productNames = new Set(
+                      bd.data.topItems.map((item) => item.name),
+                    );
+                    productNames.forEach((name) => {
                       const count = productBranchCount.get(name) || 0;
                       productBranchCount.set(name, count + 1);
                     });
                   });
-                  
+
                   return (
                     <div className="space-y-2">
                       <p className="text-sm font-medium text-purple-900">
@@ -1132,13 +1264,22 @@ export default function DashboardPage() {
                       {topProducts.map(([name, qty], idx) => {
                         const branchCount = productBranchCount.get(name) || 0;
                         return (
-                          <div key={name} className="flex items-center justify-between text-sm">
+                          <div
+                            key={name}
+                            className="flex items-center justify-between text-sm"
+                          >
                             <div className="flex items-center gap-2">
-                              <span className="text-purple-700 font-semibold">{idx + 1}.</span>
-                              <span className="text-purple-900 font-medium">{name}</span>
+                              <span className="text-purple-700 font-semibold">
+                                {idx + 1}.
+                              </span>
+                              <span className="text-purple-900 font-medium">
+                                {name}
+                              </span>
                             </div>
                             <div className="flex items-center gap-3">
-                              <span className="text-purple-700">{qty.toLocaleString()} total units</span>
+                              <span className="text-purple-700">
+                                {qty.toLocaleString()} total units
+                              </span>
                               <span className="text-xs bg-purple-100 text-purple-800 px-2 py-1 rounded-full">
                                 {branchCount}/{comparisonData.length} branches
                               </span>
@@ -1153,18 +1294,30 @@ export default function DashboardPage() {
 
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-3">
                 {comparisonData.map((branchData) => (
-                  <div key={branchData.branchId} className="rounded-2xl bg-gray-50 p-4 border border-gray-200">
-                    <h5 className="font-semibold text-gray-900 mb-3">{branchData.branchName}</h5>
+                  <div
+                    key={branchData.branchId}
+                    className="rounded-2xl bg-gray-50 p-4 border border-gray-200"
+                  >
+                    <h5 className="font-semibold text-gray-900 mb-3">
+                      {branchData.branchName}
+                    </h5>
                     <div className="space-y-2">
                       {branchData.data.topItems.slice(0, 5).map((item, idx) => (
-                        <div key={idx} className="flex items-center justify-between text-sm">
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between text-sm"
+                        >
                           <div className="flex items-center gap-2">
                             <span className="flex h-6 w-6 items-center justify-center rounded-full bg-indigo-100 text-xs font-semibold text-indigo-700">
                               {idx + 1}
                             </span>
-                            <span className="text-gray-900 font-medium truncate">{item.name}</span>
+                            <span className="text-gray-900 font-medium truncate">
+                              {item.name}
+                            </span>
                           </div>
-                          <span className="text-gray-600 ml-2 flex-shrink-0">{item.qty} units</span>
+                          <span className="text-gray-600 ml-2 flex-shrink-0">
+                            {item.qty} units
+                          </span>
                         </div>
                       ))}
                     </div>
@@ -1175,8 +1328,10 @@ export default function DashboardPage() {
 
             {/* Peak Hours Analysis */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Peak Hours Comparison</h4>
-              
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Peak Hours Comparison
+              </h4>
+
               {/* Summary Section */}
               <div className="mb-6 rounded-2xl bg-gradient-to-r from-blue-50 to-cyan-50 p-4 border border-blue-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-blue-700 mb-2">
@@ -1184,31 +1339,50 @@ export default function DashboardPage() {
                 </p>
                 {(() => {
                   // Find peak hour for each branch
-                  const branchPeaks = comparisonData.map(bd => {
-                    const maxOrders = Math.max(...bd.data.ordersByHour);
-                    const peakHour = bd.data.ordersByHour.indexOf(maxOrders);
-                    return { branch: bd.branchName, hour: peakHour, orders: maxOrders };
-                  }).sort((a, b) => b.orders - a.orders);
-                  
+                  const branchPeaks = comparisonData
+                    .map((bd) => {
+                      const maxOrders = Math.max(...bd.data.ordersByHour);
+                      const peakHour = bd.data.ordersByHour.indexOf(maxOrders);
+                      return {
+                        branch: bd.branchName,
+                        hour: peakHour,
+                        orders: maxOrders,
+                      };
+                    })
+                    .sort((a, b) => b.orders - a.orders);
+
                   // Find overall peak hour across all branches
-                  const hourlyTotals = Array.from({ length: 24 }, (_, hour) => ({
-                    hour,
-                    total: comparisonData.reduce((sum, bd) => sum + (bd.data.ordersByHour[hour] || 0), 0)
-                  }));
-                  const overallPeak = hourlyTotals.reduce((max, curr) => curr.total > max.total ? curr : max);
-                  
+                  const hourlyTotals = Array.from(
+                    { length: 24 },
+                    (_, hour) => ({
+                      hour,
+                      total: comparisonData.reduce(
+                        (sum, bd) => sum + (bd.data.ordersByHour[hour] || 0),
+                        0,
+                      ),
+                    }),
+                  );
+                  const overallPeak = hourlyTotals.reduce((max, curr) =>
+                    curr.total > max.total ? curr : max,
+                  );
+
                   return (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="text-sm font-medium text-blue-900">
-                          Busiest hour overall: {overallPeak.hour}:00 - {overallPeak.hour + 1}:00
+                          Busiest hour overall: {overallPeak.hour}:00 -{" "}
+                          {overallPeak.hour + 1}:00
                         </span>
                         <span className="text-xs bg-blue-100 text-blue-800 px-2 py-1 rounded-full">
                           {overallPeak.total} total orders
                         </span>
                       </div>
                       <div className="text-sm text-blue-800">
-                        Branch peaks: {branchPeaks.slice(0, 2).map(p => `${p.branch} (${p.hour}:00)`).join(', ')}
+                        Branch peaks:{" "}
+                        {branchPeaks
+                          .slice(0, 2)
+                          .map((p) => `${p.branch} (${p.hour}:00)`)
+                          .join(", ")}
                       </div>
                     </div>
                   );
@@ -1220,10 +1394,13 @@ export default function DashboardPage() {
                   data={(() => {
                     // Create combined data for all branches by hour
                     const hours = Array.from({ length: 24 }, (_, i) => i);
-                    return hours.map(hour => {
-                      const dataPoint: Record<string, string | number> = { hour: `${hour}:00` };
-                      comparisonData.forEach(bd => {
-                        dataPoint[bd.branchName] = bd.data.ordersByHour[hour] || 0;
+                    return hours.map((hour) => {
+                      const dataPoint: Record<string, string | number> = {
+                        hour: `${hour}:00`,
+                      };
+                      comparisonData.forEach((bd) => {
+                        dataPoint[bd.branchName] =
+                          bd.data.ordersByHour[hour] || 0;
                       });
                       return dataPoint;
                     });
@@ -1242,7 +1419,14 @@ export default function DashboardPage() {
                   />
                   <Legend />
                   {comparisonData.map((branchData, idx) => {
-                    const colors = ['#7C3AED', '#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                    const colors = [
+                      "#7C3AED",
+                      "#2563EB",
+                      "#10B981",
+                      "#F59E0B",
+                      "#EF4444",
+                      "#8B5CF6",
+                    ];
                     return (
                       <Line
                         key={branchData.branchId}
@@ -1260,25 +1444,42 @@ export default function DashboardPage() {
 
             {/* Peak Days Analysis */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Peak Days Comparison</h4>
-              
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Peak Days Comparison
+              </h4>
+
               {/* Summary Section */}
               <div className="mb-6 rounded-2xl bg-gradient-to-r from-green-50 to-emerald-50 p-4 border border-green-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-green-700 mb-2">
                   📅 Peak Days Summary
                 </p>
                 {(() => {
-                  const weekdays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-                  
+                  const weekdays = [
+                    "Monday",
+                    "Tuesday",
+                    "Wednesday",
+                    "Thursday",
+                    "Friday",
+                    "Saturday",
+                    "Sunday",
+                  ];
+
                   // Calculate total orders per day across all branches
                   const dayTotals = Array.from({ length: 7 }, (_, dayIdx) => ({
                     day: weekdays[dayIdx],
-                    total: comparisonData.reduce((sum, bd) => sum + (bd.data.ordersByWeekday[dayIdx] || 0), 0)
+                    total: comparisonData.reduce(
+                      (sum, bd) => sum + (bd.data.ordersByWeekday[dayIdx] || 0),
+                      0,
+                    ),
                   }));
-                  
-                  const peakDay = dayTotals.reduce((max, curr) => curr.total > max.total ? curr : max);
-                  const slowestDay = dayTotals.reduce((min, curr) => curr.total < min.total ? curr : min);
-                  
+
+                  const peakDay = dayTotals.reduce((max, curr) =>
+                    curr.total > max.total ? curr : max,
+                  );
+                  const slowestDay = dayTotals.reduce((min, curr) =>
+                    curr.total < min.total ? curr : min,
+                  );
+
                   return (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between">
@@ -1306,11 +1507,22 @@ export default function DashboardPage() {
                 <BarChart
                   data={(() => {
                     // Create combined data for all branches by weekday
-                    const weekdays = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+                    const weekdays = [
+                      "Mon",
+                      "Tue",
+                      "Wed",
+                      "Thu",
+                      "Fri",
+                      "Sat",
+                      "Sun",
+                    ];
                     return weekdays.map((day, dayIdx) => {
-                      const dataPoint: Record<string, string | number> = { day };
-                      comparisonData.forEach(bd => {
-                        dataPoint[bd.branchName] = bd.data.ordersByWeekday[dayIdx] || 0;
+                      const dataPoint: Record<string, string | number> = {
+                        day,
+                      };
+                      comparisonData.forEach((bd) => {
+                        dataPoint[bd.branchName] =
+                          bd.data.ordersByWeekday[dayIdx] || 0;
                       });
                       return dataPoint;
                     });
@@ -1329,7 +1541,14 @@ export default function DashboardPage() {
                   />
                   <Legend />
                   {comparisonData.map((branchData, idx) => {
-                    const colors = ['#7C3AED', '#2563EB', '#10B981', '#F59E0B', '#EF4444', '#8B5CF6'];
+                    const colors = [
+                      "#7C3AED",
+                      "#2563EB",
+                      "#10B981",
+                      "#F59E0B",
+                      "#EF4444",
+                      "#8B5CF6",
+                    ];
                     return (
                       <Bar
                         key={branchData.branchId}
@@ -1345,8 +1564,10 @@ export default function DashboardPage() {
 
             {/* Platform/Channel Comparison */}
             <div className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
-              <h4 className="text-lg font-semibold text-gray-900 mb-4">Platform-wise Sales Comparison</h4>
-              
+              <h4 className="text-lg font-semibold text-gray-900 mb-4">
+                Platform-wise Sales Comparison
+              </h4>
+
               {/* Summary Section */}
               <div className="mb-6 rounded-2xl bg-gradient-to-r from-amber-50 to-orange-50 p-4 border border-amber-200">
                 <p className="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">
@@ -1355,20 +1576,24 @@ export default function DashboardPage() {
                 {(() => {
                   // Collect all unique channels and calculate totals
                   const channelTotals = new Map<string, number>();
-                  comparisonData.forEach(bd => {
-                    Object.entries(bd.data.channels).forEach(([channel, value]) => {
-                      const current = channelTotals.get(channel) || 0;
-                      channelTotals.set(channel, current + value);
-                    });
+                  comparisonData.forEach((bd) => {
+                    Object.entries(bd.data.channels).forEach(
+                      ([channel, value]) => {
+                        const current = channelTotals.get(channel) || 0;
+                        channelTotals.set(channel, current + value);
+                      },
+                    );
                   });
-                  
+
                   // Sort by total revenue
                   const topChannels = Array.from(channelTotals.entries())
                     .sort((a, b) => b[1] - a[1])
                     .slice(0, 3);
-                  
-                  const totalRevenue = Array.from(channelTotals.values()).reduce((sum, val) => sum + val, 0);
-                  
+
+                  const totalRevenue = Array.from(
+                    channelTotals.values(),
+                  ).reduce((sum, val) => sum + val, 0);
+
                   return (
                     <div className="space-y-2">
                       <div className="flex items-center justify-between mb-2">
@@ -1380,15 +1605,27 @@ export default function DashboardPage() {
                         </span>
                       </div>
                       {topChannels.map(([channel, revenue], idx) => {
-                        const percentage = ((revenue / totalRevenue) * 100).toFixed(1);
+                        const percentage = (
+                          (revenue / totalRevenue) *
+                          100
+                        ).toFixed(1);
                         return (
-                          <div key={channel} className="flex items-center justify-between text-sm">
+                          <div
+                            key={channel}
+                            className="flex items-center justify-between text-sm"
+                          >
                             <div className="flex items-center gap-2">
-                              <span className="text-amber-700 font-semibold">{idx + 1}.</span>
-                              <span className="text-amber-900 font-medium">{channel}</span>
+                              <span className="text-amber-700 font-semibold">
+                                {idx + 1}.
+                              </span>
+                              <span className="text-amber-900 font-medium">
+                                {channel}
+                              </span>
                             </div>
                             <div className="flex items-center gap-2">
-                              <span className="text-amber-700">{currencyFormatter.format(revenue)}</span>
+                              <span className="text-amber-700">
+                                {currencyFormatter.format(revenue)}
+                              </span>
                               <span className="text-xs bg-amber-100 text-amber-800 px-2 py-1 rounded-full">
                                 {percentage}%
                               </span>
@@ -1405,45 +1642,75 @@ export default function DashboardPage() {
                 {(() => {
                   // Collect all unique channels across all branches
                   const allChannels = new Set<string>();
-                  comparisonData.forEach(bd => {
-                    Object.keys(bd.data.channels).forEach(channel => allChannels.add(channel));
+                  comparisonData.forEach((bd) => {
+                    Object.keys(bd.data.channels).forEach((channel) =>
+                      allChannels.add(channel),
+                    );
                   });
 
                   // Create data for each channel
-                  return Array.from(allChannels).map(channel => {
-                    const channelData = comparisonData.map(bd => ({
-                      name: bd.branchName,
-                      value: bd.data.channels[channel] || 0,
-                    })).filter(d => d.value > 0);
+                  return Array.from(allChannels)
+                    .map((channel) => {
+                      const channelData = comparisonData
+                        .map((bd) => ({
+                          name: bd.branchName,
+                          value: bd.data.channels[channel] || 0,
+                        }))
+                        .filter((d) => d.value > 0);
 
-                    if (channelData.length === 0) return null;
+                      if (channelData.length === 0) return null;
 
-                    return (
-                      <div key={channel} className="border-b border-gray-200 pb-4 last:border-b-0">
-                        <h5 className="font-semibold text-gray-900 mb-3">{channel}</h5>
-                        <ResponsiveContainer width="100%" height={150}>
-                          <BarChart
-                            data={channelData}
-                            layout="vertical"
-                            margin={{ top: 5, right: 30, left: 100, bottom: 5 }}
-                          >
-                            <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
-                            <XAxis type="number" stroke="#6b7280" />
-                            <YAxis dataKey="name" type="category" stroke="#6b7280" width={90} />
-                            <Tooltip
-                              formatter={(value: number) => currencyFormatter.format(value)}
-                              contentStyle={{
-                                backgroundColor: "rgba(255, 255, 255, 0.96)",
-                                border: "1px solid #e5e7eb",
-                                borderRadius: "8px",
+                      return (
+                        <div
+                          key={channel}
+                          className="border-b border-gray-200 pb-4 last:border-b-0"
+                        >
+                          <h5 className="font-semibold text-gray-900 mb-3">
+                            {channel}
+                          </h5>
+                          <ResponsiveContainer width="100%" height={150}>
+                            <BarChart
+                              data={channelData}
+                              layout="vertical"
+                              margin={{
+                                top: 5,
+                                right: 30,
+                                left: 100,
+                                bottom: 5,
                               }}
-                            />
-                            <Bar dataKey="value" fill="#10B981" radius={[0, 4, 4, 0]} />
-                          </BarChart>
-                        </ResponsiveContainer>
-                      </div>
-                    );
-                  }).filter(Boolean);
+                            >
+                              <CartesianGrid
+                                strokeDasharray="3 3"
+                                stroke="#e5e7eb"
+                              />
+                              <XAxis type="number" stroke="#6b7280" />
+                              <YAxis
+                                dataKey="name"
+                                type="category"
+                                stroke="#6b7280"
+                                width={90}
+                              />
+                              <Tooltip
+                                formatter={(value: number) =>
+                                  currencyFormatter.format(value)
+                                }
+                                contentStyle={{
+                                  backgroundColor: "rgba(255, 255, 255, 0.96)",
+                                  border: "1px solid #e5e7eb",
+                                  borderRadius: "8px",
+                                }}
+                              />
+                              <Bar
+                                dataKey="value"
+                                fill="#10B981"
+                                radius={[0, 4, 4, 0]}
+                              />
+                            </BarChart>
+                          </ResponsiveContainer>
+                        </div>
+                      );
+                    })
+                    .filter(Boolean);
                 })()}
               </div>
             </div>
@@ -2017,6 +2284,172 @@ export default function DashboardPage() {
                       <p className="mt-1 text-sm">{card.helper}</p>
                     </div>
                   ))}
+                </div>
+              </section>
+            )}
+            {/* Export Tab */}
+            {activeTab === "export" && (
+              <section className="rounded-3xl border border-white/60 bg-white p-6 shadow-lg shadow-slate-900/5">
+                <h3 className="mb-1 text-lg font-bold text-gray-900">
+                  Export Monthly Report
+                </h3>
+                <p className="mb-6 text-sm text-gray-500">
+                  Select up to 5 months and any combination of branches. The CSV
+                  will include revenue, discounts, orders and tax per branch per
+                  month.
+                </p>
+
+                <div className="grid gap-8 lg:grid-cols-2">
+                  {/* Branch selection */}
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Branches
+                      </p>
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() =>
+                            setExportBranchIds(branches.map((b) => b.id))
+                          }
+                          className="text-xs font-medium text-indigo-600 hover:underline"
+                        >
+                          Select all
+                        </button>
+                        <button
+                          onClick={() => setExportBranchIds([])}
+                          className="text-xs font-medium text-gray-400 hover:underline"
+                        >
+                          Clear
+                        </button>
+                      </div>
+                    </div>
+                    <div className="max-h-64 space-y-2 overflow-y-auto rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                      {branches.map((b) => {
+                        const checked =
+                          exportBranchIds.length === 0 ||
+                          exportBranchIds.includes(b.id);
+                        return (
+                          <label
+                            key={b.id}
+                            className="flex cursor-pointer items-center gap-3 rounded-xl px-3 py-2 hover:bg-white"
+                          >
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => {
+                                if (exportBranchIds.length === 0) {
+                                  // "all" → deselect this one
+                                  setExportBranchIds(
+                                    branches
+                                      .map((br) => br.id)
+                                      .filter((id) => id !== b.id),
+                                  );
+                                } else if (exportBranchIds.includes(b.id)) {
+                                  setExportBranchIds(
+                                    exportBranchIds.filter((id) => id !== b.id),
+                                  );
+                                } else {
+                                  setExportBranchIds([
+                                    ...exportBranchIds,
+                                    b.id,
+                                  ]);
+                                }
+                              }}
+                              className="h-4 w-4 accent-indigo-600"
+                            />
+                            <span className="text-sm font-medium text-gray-800">
+                              {b.name}
+                              {b.location && (
+                                <span className="ml-1 text-gray-400">
+                                  • {b.location}
+                                </span>
+                              )}
+                            </span>
+                          </label>
+                        );
+                      })}
+                    </div>
+                    <p className="mt-2 text-xs text-gray-400">
+                      {exportBranchIds.length === 0
+                        ? `All ${branches.length} branches selected`
+                        : `${exportBranchIds.length} of ${branches.length} selected`}
+                    </p>
+                  </div>
+
+                  {/* Month selection */}
+                  <div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <p className="text-xs font-semibold uppercase tracking-wide text-gray-500">
+                        Months{" "}
+                        <span className="font-normal text-gray-400">
+                          (max 5)
+                        </span>
+                      </p>
+                      {exportMonths.length < 5 && (
+                        <button
+                          onClick={() => {
+                            const last =
+                              exportMonths[exportMonths.length - 1] || "";
+                            if (!last) return;
+                            const [y, m] = last.split("-").map(Number);
+                            const next = new Date(y, m - 1 - 1, 1);
+                            const nextStr = `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}`;
+                            setExportMonths([...exportMonths, nextStr]);
+                          }}
+                          className="text-xs font-medium text-indigo-600 hover:underline"
+                        >
+                          + Add month
+                        </button>
+                      )}
+                    </div>
+                    <div className="space-y-3">
+                      {exportMonths.map((m, idx) => (
+                        <div key={idx} className="flex items-center gap-2">
+                          <input
+                            type="month"
+                            value={m}
+                            onChange={(e) => {
+                              const updated = [...exportMonths];
+                              updated[idx] = e.target.value;
+                              setExportMonths(updated);
+                            }}
+                            className="flex-1 rounded-2xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-900 focus:border-indigo-500 focus:outline-none"
+                          />
+                          {exportMonths.length > 1 && (
+                            <button
+                              onClick={() =>
+                                setExportMonths(
+                                  exportMonths.filter((_, i) => i !== idx),
+                                )
+                              }
+                              className="flex h-10 w-10 items-center justify-center rounded-full text-gray-400 hover:bg-gray-100 hover:text-red-500"
+                              aria-label="Remove month"
+                            >
+                              ✕
+                            </button>
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                </div>
+
+                <div className="mt-8 flex items-center gap-4">
+                  <button
+                    onClick={handleExport}
+                    disabled={
+                      exportLoading || exportMonths.filter(Boolean).length === 0
+                    }
+                    className="rounded-2xl bg-gradient-to-r from-[#7C3AED] to-[#2563EB] px-8 py-3 text-sm font-semibold text-white shadow-lg shadow-indigo-500/30 transition hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:opacity-60"
+                  >
+                    {exportLoading
+                      ? "Downloading…"
+                      : `Download CSV${exportMonths.filter(Boolean).length > 1 ? ` (${exportMonths.filter(Boolean).length} months)` : ""}`}
+                  </button>
+                  <p className="text-xs text-gray-400">
+                    Data will be fetched from the monthly cache where available,
+                    otherwise pulled live from the API.
+                  </p>
                 </div>
               </section>
             )}

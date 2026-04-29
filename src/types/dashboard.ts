@@ -48,6 +48,24 @@ export interface BranchComparisonData {
   data: DashboardData;
 }
 
+export interface MonthlyDataDocument {
+  branchId: string;
+  branchName: string;
+  year: number;
+  month: number;
+  summary: SalesSummary;
+  payments: PaymentAnalytics;
+  syncedAt: Date;
+  syncSource: "cron" | "manual";
+}
+
+export interface SyncResult {
+  branchId: string;
+  branchName: string;
+  success: boolean;
+  error?: string;
+}
+
 export interface DashboardState {
   branch: string;
   date: string;
